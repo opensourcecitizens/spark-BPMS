@@ -20,8 +20,9 @@ import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 
-import com.neustar.iot.spark.phoenix.PhoenixForwarder;
-import com.neustar.iot.spark.rest.RestfulForwarder;
+import com.neustar.iot.spark.forward.ForwarderIfc;
+import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
+import com.neustar.iot.spark.forward.rest.RestfulForwarder;
 
 import io.parser.avro.AvroParser;
 import kafka.serializer.DefaultDecoder;
@@ -39,7 +40,6 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-//import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -60,7 +60,7 @@ public final class SparkKafkaConsumer implements Serializable{
 	private int numThreads;
 	private String phoenix_zk_JDBC = null;
 	private String hdfs_output_dir = null;
-	//private static final String AVRO_SCHEMA_HDFS_LOCATION = "hdfs://ip-172-31-33-198.us-west-2.compute.internal:8020/iotapps/avro/schema/spark/CustomMessage.avcs";
+	private String rest_Uri = null;
 	private String avro_schema_hdfs_location = null;
 	private Properties properties = null;
 	
@@ -71,7 +71,6 @@ public final class SparkKafkaConsumer implements Serializable{
 		InputStream props = SparkKafkaConsumer.class.getClassLoader().getResourceAsStream("consumer.props");
 		properties = new Properties();
 		properties.load(props);
-			
 
 		if (properties.getProperty("group.id") == null) {
 			properties.setProperty("group.id", "group-localtest");
@@ -80,6 +79,7 @@ public final class SparkKafkaConsumer implements Serializable{
 		phoenix_zk_JDBC = properties.getProperty("phoenix.zk.jdbc");
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
 		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
+		rest_Uri = properties.getProperty("rest.Uri");
 	}
 
 	public static void main(String[] args) throws IOException {
@@ -146,10 +146,6 @@ public final class SparkKafkaConsumer implements Serializable{
 				//check error and decide if to recycle msg if parser error.
 				e.printStackTrace();
 			}
-			
-
-			
-			
 				
 			return data ;
 	      }
@@ -173,22 +169,23 @@ public final class SparkKafkaConsumer implements Serializable{
 							@Override
 							public void call(Map<String,?> msg) throws Exception {
 								
-								//Map<String,?> msg = null;
-								//while(it.hasNext() && (msg =it.next() ) !=null ){
-								//apply rules here to determine what messages proceed to next level
 								
-								//you may also add tags for other rules to process downstream for re-routing etc
-								log.debug("Apply rules");
-								applyRules(msg);
+								try{
+									//Map<String,?> msg = null;
+									//while(it.hasNext() && (msg =it.next() ) !=null ){
+									//apply rules here to determine what messages proceed to next level
+									//you may also add tags for other rules to process downstream for re-routing etc
+									log.debug("Apply rules");
+									applyRules(msg);
 								
-								
-								log.debug("Save to DB  "+phoenix_zk_JDBC);
-								writeToDB(msg, phoenix_zk_JDBC);
 									
-								//}
+									
 								
-								
-								
+								}catch( Throwable e){
+									//check error and decide if to recycle msg if parser error.
+									e.printStackTrace();
+								}
+									
 							}
 
 						}
@@ -253,16 +250,23 @@ public final class SparkKafkaConsumer implements Serializable{
 		return ret;
 	}
 	
-	protected void applyRules(Object o){
+	protected void applyRules(Map<String, ?> msg) throws Throwable{
+		//Schema schema = retrieveLatestAvroSchema();
+		log.debug("Save to DB  "+phoenix_zk_JDBC);	
+
+		writeToDB(msg, phoenix_zk_JDBC);
+		
+		remoteRest(msg, rest_Uri);
 		
 	}
 	
 	
-	protected void writeToDB(Map<String, ?> map, String phoenix_zk_JDBC) throws ClassNotFoundException, SQLException, IOException{
-		//Schema schema = retrieveLatestAvroSchema();
-		PhoenixForwarder<String> phoenixConn = PhoenixForwarder.singleton(phoenix_zk_JDBC, new String());	
-		//phoenixConn.saveToJDBC(map,schema);
-		phoenixConn.saveToJDBC(map);
+	protected void writeToDB(Map<String, ?> map, String phoenix_zk_JDBC) throws Throwable{
+		Schema schema = retrieveLatestAvroSchema();
+		
+		ForwarderIfc phoenixConn = PhoenixForwarder.singleton(phoenix_zk_JDBC);	
+		phoenixConn.forward(map,schema);
+		//phoenixConn.saveToJDBC(map);
 	}
 	
 	
@@ -307,10 +311,10 @@ public final class SparkKafkaConsumer implements Serializable{
 	}
 	
 	
-	protected String remoteRest(String payload){
-		RestfulForwarder forwarder = new RestfulForwarder();
-		
-		return forwarder.forward(payload);	
+	protected String remoteRest(Map<String, ?> map, String uri) throws Throwable{
+		ForwarderIfc forwarder = RestfulForwarder.singleton(uri);
+		Schema schema = retrieveLatestAvroSchema();
+		return forwarder.forward(map,schema);
 	}
 
 

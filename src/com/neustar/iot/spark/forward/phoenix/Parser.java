@@ -1,4 +1,4 @@
-package com.neustar.iot.spark.phoenix;
+package com.neustar.iot.spark.forward.phoenix;
 
 public class Parser {
 	

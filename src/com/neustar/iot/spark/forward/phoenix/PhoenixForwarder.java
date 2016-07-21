@@ -1,6 +1,5 @@
-package com.neustar.iot.spark.phoenix;
+package com.neustar.iot.spark.forward.phoenix;
 
-import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -15,9 +14,11 @@ import org.apache.avro.Schema;
 import org.apache.log4j.Logger;
 import org.apache.phoenix.jdbc.PhoenixDriver;
 
+import com.neustar.iot.spark.forward.ForwarderIfc;
+
 import io.parser.avro.phoenix.AvroToPhoenixMap;
 
-public class PhoenixForwarder<K> implements Serializable {
+public class PhoenixForwarder implements ForwarderIfc {
 
 	Logger log = Logger.getLogger(PhoenixForwarder.class);
 	private static final long serialVersionUID = 1L;
@@ -31,25 +32,15 @@ public class PhoenixForwarder<K> implements Serializable {
 	
 	private PhoenixForwarder(){}
 	
-	private static PhoenixForwarder<?> forwarderInstance = null;
+	private static PhoenixForwarder forwarderInstance = null;
 	
-	public static PhoenixForwarder<?> singleton(String zookeeper_quorum) throws ClassNotFoundException, SQLException{
+	public static PhoenixForwarder singleton(String zookeeper_quorum) throws ClassNotFoundException, SQLException{
 		
 		if(forwarderInstance==null){
-			forwarderInstance = new PhoenixForwarder<>(zookeeper_quorum);
+			forwarderInstance = new PhoenixForwarder(zookeeper_quorum);
 		}
 		
 		return forwarderInstance;
-	} 
-	
-	@SuppressWarnings("unchecked")
-	public static <T> PhoenixForwarder<T> singleton(String zookeeper_quorum, T keytype) throws ClassNotFoundException, SQLException{
-		
-		if(forwarderInstance==null){
-			forwarderInstance = new PhoenixForwarder<T>(zookeeper_quorum);
-		}
-		
-		return (PhoenixForwarder<T>) forwarderInstance;
 	} 
 	
 
@@ -62,7 +53,7 @@ public class PhoenixForwarder<K> implements Serializable {
 		prepStmt.executeUpdate();
 	}
 	
-	
+	/*
 	public <V>  void saveToJDBC(Map<String,V> map ) throws SQLException, ClassNotFoundException {
 
 		prepStmt = getConn().prepareStatement("UPSERT INTO TEST_TABLE (CREATED_TIME,ID,MESSAGE)VALUES(?,?,?)");
@@ -73,30 +64,7 @@ public class PhoenixForwarder<K> implements Serializable {
 		int res = prepStmt.executeUpdate();
 		log.info("Execute update result = "+res);
 	}
-	
-	/**TODO */
-	public  <V> void saveToJDBC(Map<String,V> map , Schema avroSchema) throws SQLException, ClassNotFoundException {
-		
-		Set<String> keyset = map.keySet();
-		int datasize = keyset.size();
-		
-		char[] qm = new char[datasize];
-		for(int i = 0; i < datasize; i++){
-			qm[i]='?';
-		}
-		
-		prepStmt = getConn().prepareStatement("UPSERT INTO TEST_TABLE ( "+Arrays.toString(keyset.toArray()).replace("[", "").replace("]", "")+",CREATED_TIME) "
-				+ "VALUES("+Arrays.toString(qm).replace("[", "").replace("]", "")+", ? )");
-		prepStmt.setTime(datasize+1, new Time(System.currentTimeMillis()));
-		AvroToPhoenixMap sqlMapping = new AvroToPhoenixMap();
-		
-		sqlMapping.translate(prepStmt, avroSchema, map);
-		//prepStmt.setTime(3, new Time(System.currentTimeMillis()));
-		log.debug("SQL = "+prepStmt.toString());
-		int res = prepStmt.executeUpdate();
-		log.debug("Execute update result = "+res);
-	}
-	
+	*/
 	private Connection getConn() throws SQLException, ClassNotFoundException{
 		if(conn==null || conn.isClosed()){
 			Class.forName("org.apache.phoenix.jdbc.PhoenixDriver");
@@ -122,5 +90,33 @@ public class PhoenixForwarder<K> implements Serializable {
 	public void finalize() throws Throwable{
 		closeConn();
 		super.finalize();
+	}
+
+	
+
+	@Override
+	public String forward(Map<String, ?> map, Schema schema) throws Throwable {
+		Set<String> keyset = map.keySet();
+		int datasize = keyset.size();
+		
+		char[] qm = new char[datasize];
+		for(int i = 0; i < datasize; i++){
+			qm[i]='?';
+		}
+		
+		prepStmt = getConn().prepareStatement("UPSERT INTO TEST_TABLE ( "+Arrays.toString(keyset.toArray()).replace("[", "").replace("]", "")+",CREATED_TIME) "
+				+ "VALUES("+Arrays.toString(qm).replace("[", "").replace("]", "")+", ? )");
+		
+		AvroToPhoenixMap sqlMapping = new AvroToPhoenixMap();
+		
+		sqlMapping.translate(prepStmt, map, schema);
+		
+		prepStmt.setTime(datasize+1, new Time(System.currentTimeMillis()));
+		log.debug("SQL = "+prepStmt.toString());
+		int res = prepStmt.executeUpdate();
+		log.debug("Execute update result = "+res);
+		
+		
+		return  res+"";
 	}
 }

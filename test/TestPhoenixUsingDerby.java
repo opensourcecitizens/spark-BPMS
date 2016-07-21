@@ -25,7 +25,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.neustar.iot.spark.phoenix.PhoenixForwarder;
+import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
 
 import avro.TestAvro;
 import io.parser.avro.AvroParser;
@@ -118,7 +118,7 @@ public class TestPhoenixUsingDerby {
 			smt2.setTimestamp(datasize+1, new Timestamp(System.currentTimeMillis()));
 			AvroToPhoenixMap sqlMapping = new AvroToPhoenixMap();
 			
-			sqlMapping.translate(smt2, schema, map);
+			sqlMapping.translate(smt2, map, schema);
 			
 			
 			
@@ -129,7 +129,7 @@ public class TestPhoenixUsingDerby {
 			//PhoenixForwarder<String> phoenixConn = PhoenixForwarder.singleton(phoenix_zk_JDBC, new String());	
 			//phoenixConn.saveToJDBC(map,schema);
 			//phoenixConn.saveToJDBC(map);
-			System.out.println("Sent message");
+			System.out.println("Sent message "+res);
 	 }
 	 
 	 
