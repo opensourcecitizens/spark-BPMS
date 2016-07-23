@@ -16,22 +16,22 @@ import com.sun.jersey.api.client.config.ClientConfig;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 
 
-public class RestfulForwarder implements ForwarderIfc{
+public class RestfulGetForwarder implements ForwarderIfc{
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
 	
 	private String uri = "http://ec2-52-41-124-186.us-west-2.compute.amazonaws.com:8080";
-	private static RestfulForwarder singleton = null;
+	private static RestfulGetForwarder singleton = null;
 	
-	private RestfulForwarder(){
+	private RestfulGetForwarder(){
 	}
 	
 	public static ForwarderIfc singleton(String _uri) {
 		
 		if(singleton==null){
-			singleton=new RestfulForwarder();
+			singleton=new RestfulGetForwarder();
 		}
 		
 		singleton.setUri(_uri);

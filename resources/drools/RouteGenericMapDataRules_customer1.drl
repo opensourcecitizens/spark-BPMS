@@ -1,0 +1,68 @@
+package drools
+ 
+import java.util.Map;
+import java.lang.String;
+import com.neustar.iot.spark.rules.RulesForwardWorker;
+
+
+
+ 
+/* Rule template for individual customization:
+ * This rule checks for message type in order to route
+ * Routing may include more than one destination ie db, rest 
+ * customer1 preferences: 
+ * email: customer1@email.com
+ * sms: 415-400-5555
+ * //"REGISTRY" , "NOTIFICATION" , "TELEMETRY", "EXCEPTION" 
+ */
+dialect "java"
+
+global RulesForwardWorker worker 
+global String rest_Uri
+global String jdbc_url
+global String hdfs_url 
+
+rule "Registry Put"
+    when
+        $messageMap : Map( this["messagetype"] == "REGISTRY" )             
+    then
+   		worker = new RulesForwardWorker();
+    	rest_Uri =  new String("http://ec2-52-41-124-186.us-west-2.compute.amazonaws.com:8080");
+    	String ret = worker.remoteRestGet($messageMap, rest_Uri, null);
+        System.out.println("Message sent to registry put returned : " + ret );
+        $messageMap.put("result_registry", ret);
+end
+
+rule "Notification Put"
+    when
+        $messageMap : Map( this["messagetype"] == "NOTIFICATION" )             
+    then
+    	worker = new RulesForwardWorker(); 
+    	rest_Uri =  new String("http://ec2-52-41-124-186.us-west-2.compute.amazonaws.com:8080");
+    	String ret = worker.remoteRestGet($messageMap, rest_Uri, null);
+        System.out.println("Message sent to registry put returned : " + ret );
+        $messageMap.put("result_notification", ret);
+end
+
+
+rule "Data Persist in DB"
+    when
+        $messageMap : Map( this["messagetype"] == "NOTIFICATION" )             
+    then
+    	worker = new RulesForwardWorker();
+    	jdbc_url =  new String("ip-172-31-33-198.us-west-2.compute.internal,ip-172-31-33-199.us-west-2.compute.internal:2181:/hbase-unsecure:hbase");
+    	String ret = worker.writeToDB($messageMap, jdbc_url, null);
+        System.out.println("Message sent to DB : " + ret );
+        $messageMap.put("result_db", ret);
+end
+
+rule "Data Persist in HDFS"
+    when
+        $messageMap : Map( this["messagetype"] == "NOTIFICATION" )             
+    then
+    	worker = new RulesForwardWorker();
+    	hdfs_url =  new String("hdfs://ip-172-31-33-198.us-west-2.compute.internal:8020/testdata/spark");
+    	String ret = "";//worker.writeToHDFS($messageMap, hdfs_url, null);
+        System.out.println("Message sent to HDFS returned : " + ret );
+        $messageMap.put("result_hdfs", ret);
+end

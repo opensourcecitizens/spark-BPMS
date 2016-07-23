@@ -39,20 +39,16 @@ public class RESTVolumeTest_with_DataProtocols {
 		
 		try {
 			int i;
-			for ( i = 0; i < 1000; i++) {
+			for ( i = 0; i < 10; i++) {
 				// send lots of messages
-				producer.send(toAvro(String.format("{\"type\":\"fast\", \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i)));
+				producer.send(toAvro(String.format("{ \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i),"NOTIFICATION"));
 
 				// every so often send to a different topic
-				if (i % 100 == 0) {
+				if (i % 2 == 0) {
 					producer.send(toAvro(
-							String.format("{\"type\":\"request\", \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i)));
+							String.format("owners/143", System.nanoTime() * 1e-9, i),"REGISTRY"));
 					producer.send(toAvro(
-							String.format("{\"type\":\"log\", \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i)));
-					producer.send(toAvro(
-							String.format("{\"type\":\"notice\", \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i)));
-					producer.send(toAvro(String.format("{\"type\":\"response\", \"t\":%.3f, \"k\":%d}",
-							System.nanoTime() * 1e-9, i)));
+							String.format("{ \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i),"EXCEPTION"));
 
 					System.out.println("Sent msg number " + i);
 				}
@@ -68,10 +64,11 @@ public class RESTVolumeTest_with_DataProtocols {
 
 	}
 	
-	private static byte[] toAvro(String payload) throws IOException{
+	private static byte[] toAvro(String payload, String type) throws IOException{
 		GenericRecord mesg = new GenericData.Record(schema);		
-		mesg.put("id", "device1");
+		mesg.put("id", "customer1");
 		mesg.put("payload", payload);
+		mesg.put("messagetype", type);
 		//create avro
 		byte[] avro = AvroUtils.serializeJson(mesg.toString(), schema);
 		return avro;

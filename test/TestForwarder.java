@@ -9,7 +9,7 @@ import org.junit.Test;
 
 import com.neustar.iot.spark.forward.ForwarderIfc;
 import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
-import com.neustar.iot.spark.forward.rest.RestfulForwarder;
+import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
 
 import avro.TestAvro;
 import io.parser.avro.AvroParser;
@@ -61,7 +61,7 @@ public class TestForwarder {
 			AvroParser<Map<String,?>> parser = new AvroParser<Map<String,?>>(schema);
 			Map<String,?> map =  parser.parse(avrodata, schema);
 			
-			ForwarderIfc restForward = RestfulForwarder.singleton(restUri);	
+			ForwarderIfc restForward = RestfulGetForwarder.singleton(restUri);	
 			String response = restForward.forward(map,schema);
 			
 			System.out.println("Sent message "+response);

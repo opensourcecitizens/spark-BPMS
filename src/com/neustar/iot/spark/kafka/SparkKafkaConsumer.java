@@ -22,7 +22,7 @@ import org.apache.spark.streaming.kafka.KafkaUtils;
 
 import com.neustar.iot.spark.forward.ForwarderIfc;
 import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
-import com.neustar.iot.spark.forward.rest.RestfulForwarder;
+import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
 
 import io.parser.avro.AvroParser;
 import kafka.serializer.DefaultDecoder;
@@ -100,8 +100,8 @@ public final class SparkKafkaConsumer implements Serializable{
 		//StreamingExamples.setStreamingLogLevels();
 		SparkConf sparkConf = new SparkConf().setAppName("SparkConsumer").set("spark.driver.allowMultipleContexts","true");
 		
-		// Create the context with 10 seconds batch size
-		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(10000));
+		// Create the context with 2 seconds batch size
+		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(2000));
 		
 		Map<String, Integer> topicMap = new HashMap<>();
 		String[] topics = topics_str.split(",");
@@ -132,27 +132,27 @@ public final class SparkKafkaConsumer implements Serializable{
 		@Override
 	      public Map<String,?> call(Tuple2<String, byte[]> tuple2) throws IOException, ClassNotFoundException, SQLException {
 
-			log.debug("Raw data : Append to hdfs");
-			appendToHDFS(hdfs_output_dir + "/RAW/_MSG_" + daily_hdfsfilename + ".txt", System.nanoTime() +" | "+  tuple2._2);
+				log.debug("Raw data : Append to hdfs");
+				appendToHDFS(hdfs_output_dir + "/RAW/_MSG_" + daily_hdfsfilename + ".txt", System.nanoTime() +" | "+  tuple2._2);
 
-			//parse - 
-			Map<String, ?> data = null;
-			try {
-				data = parseAvroData(tuple2._2);
-				log.debug("Parsed data : Append to hdfs");
-				appendToHDFS(hdfs_output_dir + "/JSON/_MSG_" + daily_hdfsfilename + ".json",  parseAvroData(tuple2._2, new String()));
+				//parse - 
+				Map<String, ?> data = null;
+				try {
+					data = parseAvroData(tuple2._2);
+					log.debug("Parsed data : Append to hdfs");
+					appendToHDFS(hdfs_output_dir + "/JSON/_MSG_" + daily_hdfsfilename + ".json",  parseAvroData(tuple2._2, new String()));
 
-			} catch (Exception e) {
-				//check error and decide if to recycle msg if parser error.
-				e.printStackTrace();
-			}
+				} catch (Exception e) {
+					//check error and decide if to recycle msg if parser error.
+					e.printStackTrace();
+				}
 				
 			return data ;
 	      }
 	    });
 
 	    //System.out.println(lines.count());
-	   lines = lines.repartition(6);
+	   //lines = lines.repartition(6);
 	    
 	    
 	    lines.foreachRDD(new Function<JavaRDD<Map<String,?>>, Void>() {
@@ -234,6 +234,8 @@ public final class SparkKafkaConsumer implements Serializable{
 		return schema;
 	}
 	
+	
+	
 	protected Schema readSchemaFromHDFS(Schema.Parser parser,String uri) throws IOException{
 
 		Configuration conf = new Configuration();
@@ -251,13 +253,20 @@ public final class SparkKafkaConsumer implements Serializable{
 	}
 	
 	protected void applyRules(Map<String, ?> msg) throws Throwable{
-		//Schema schema = retrieveLatestAvroSchema();
-		log.debug("Save to DB  "+phoenix_zk_JDBC);	
 
-		writeToDB(msg, phoenix_zk_JDBC);
+				
+		log.debug("Save to DB  "+phoenix_zk_JDBC);	
+		String messageType = msg.get("messagetype")!=null ? msg.get("messagetype").toString().toUpperCase():"default";
 		
-		remoteRest(msg, rest_Uri);
-		
+
+		switch(messageType){
+		case "NOTIFICATION": writeToDB(msg, phoenix_zk_JDBC);/**send email*/ break;
+		case "REGISTRY": writeToDB(msg, phoenix_zk_JDBC); remoteRest(msg, rest_Uri); break;
+		case "EXCEPTION": writeToDB(msg, phoenix_zk_JDBC);/**queue in error topic*/ break;
+		default:			
+			writeToDB(msg, phoenix_zk_JDBC);
+		}
+
 	}
 	
 	
@@ -266,7 +275,7 @@ public final class SparkKafkaConsumer implements Serializable{
 		
 		ForwarderIfc phoenixConn = PhoenixForwarder.singleton(phoenix_zk_JDBC);	
 		phoenixConn.forward(map,schema);
-		//phoenixConn.saveToJDBC(map);
+
 	}
 	
 	
@@ -312,7 +321,7 @@ public final class SparkKafkaConsumer implements Serializable{
 	
 	
 	protected String remoteRest(Map<String, ?> map, String uri) throws Throwable{
-		ForwarderIfc forwarder = RestfulForwarder.singleton(uri);
+		ForwarderIfc forwarder = RestfulGetForwarder.singleton(uri);
 		Schema schema = retrieveLatestAvroSchema();
 		return forwarder.forward(map,schema);
 	}

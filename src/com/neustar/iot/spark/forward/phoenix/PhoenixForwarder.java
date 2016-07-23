@@ -25,51 +25,41 @@ public class PhoenixForwarder implements ForwarderIfc {
 
 	Connection conn = null;
 	PreparedStatement prepStmt = null;
-	String zookeeper_quorum = null;
+	private String jdbcUrl = null;
+
+
 	private PhoenixForwarder(String _zookeeper_quorum) throws SQLException, ClassNotFoundException {
-			zookeeper_quorum = _zookeeper_quorum;
+			jdbcUrl = _zookeeper_quorum;
 	}
 	
 	private PhoenixForwarder(){}
 	
-	private static PhoenixForwarder forwarderInstance = null;
+	private static PhoenixForwarder singleton = null;
 	
-	public static PhoenixForwarder singleton(String zookeeper_quorum) throws ClassNotFoundException, SQLException{
+	public static PhoenixForwarder singleton(String _jdbcUrl) throws ClassNotFoundException, SQLException{
 		
-		if(forwarderInstance==null){
-			forwarderInstance = new PhoenixForwarder(zookeeper_quorum);
+		if(singleton==null){
+			singleton = new PhoenixForwarder();
+			singleton.setJdbcUrl(_jdbcUrl);
 		}
 		
-		return forwarderInstance;
+		return singleton;
 	} 
 	
-
-	public  void saveToJDBC(String message ) throws SQLException, ClassNotFoundException {
-
-		prepStmt = getConn().prepareStatement("UPSERT INTO test_table (ID,Message)VALUES(?,?)");
-		prepStmt.setString(1, System.currentTimeMillis()+"_"+Math.random());
-		prepStmt.setString(2, message);
-		
-		prepStmt.executeUpdate();
+	public String getJdbcUrl() {
+		return jdbcUrl;
 	}
-	
-	/*
-	public <V>  void saveToJDBC(Map<String,V> map ) throws SQLException, ClassNotFoundException {
 
-		prepStmt = getConn().prepareStatement("UPSERT INTO TEST_TABLE (CREATED_TIME,ID,MESSAGE)VALUES(?,?,?)");
-		prepStmt.setTime(1, new Time(System.currentTimeMillis()));
-		prepStmt.setString(2, map.get("id").toString());
-		prepStmt.setString(3, map.get("payload").toString());
-		log.info("SQL = "+prepStmt.toString());
-		int res = prepStmt.executeUpdate();
-		log.info("Execute update result = "+res);
+	public void setJdbcUrl(String jdbcUrl) {
+		this.jdbcUrl = jdbcUrl;
 	}
-	*/
+
+
 	private Connection getConn() throws SQLException, ClassNotFoundException{
 		if(conn==null || conn.isClosed()){
 			Class.forName("org.apache.phoenix.jdbc.PhoenixDriver");
 			DriverManager.registerDriver(new PhoenixDriver());
-			conn = DriverManager.getConnection(zookeeper_quorum);
+			conn = DriverManager.getConnection(jdbcUrl);
 			conn.setAutoCommit(true);
 		}
 		return conn;
