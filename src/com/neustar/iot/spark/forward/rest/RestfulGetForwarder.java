@@ -28,6 +28,10 @@ public class RestfulGetForwarder implements ForwarderIfc{
 	private RestfulGetForwarder(){
 	}
 	
+	private RestfulGetForwarder(String _uri){
+		uri = _uri;
+	}
+	
 	public static ForwarderIfc singleton(String _uri) {
 		
 		if(singleton==null){
@@ -38,6 +42,10 @@ public class RestfulGetForwarder implements ForwarderIfc{
 		return singleton;
 	}
 
+	public static ForwarderIfc instance(String _uri) {
+		
+		return new RestfulGetForwarder(_uri);
+	}
 	
 	private WebResource webResource = null;
 
@@ -70,8 +78,14 @@ public class RestfulGetForwarder implements ForwarderIfc{
 		builder.header("API-KEY", "1");
 
 		ClientResponse cliResponse = builder.get(ClientResponse.class);
-		
+		System.out.println("Response = "+cliResponse);
 		return cliResponse.getEntity(String.class);
+	}
+	
+	@Override
+	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attr) throws Throwable {
+
+		return forward(map,schema);
 	}
 	
 	public String getUri() {

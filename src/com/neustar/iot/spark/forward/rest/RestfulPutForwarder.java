@@ -28,6 +28,10 @@ public class RestfulPutForwarder implements ForwarderIfc{
 	private RestfulPutForwarder(){
 	}
 	
+	private RestfulPutForwarder(String _uri){
+		uri = _uri;
+	}
+	
 	public static ForwarderIfc singleton(String _uri) {
 		
 		if(singleton==null){
@@ -36,6 +40,11 @@ public class RestfulPutForwarder implements ForwarderIfc{
 		
 		singleton.setUri(_uri);
 		return singleton;
+	}
+	
+	
+	public static ForwarderIfc instance(String _uri) {
+		return new RestfulPutForwarder(_uri);
 	}
 
 	
@@ -72,6 +81,12 @@ public class RestfulPutForwarder implements ForwarderIfc{
 		ClientResponse cliResponse = builder.put(ClientResponse.class);
 		
 		return cliResponse.getEntity(String.class);
+	}
+	
+	@Override
+	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attr) throws Throwable {
+
+		return forward(map,schema);
 	}
 	
 	public String getUri() {

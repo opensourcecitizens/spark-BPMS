@@ -46,6 +46,10 @@ public class PhoenixForwarder implements ForwarderIfc {
 		return singleton;
 	} 
 	
+	public static PhoenixForwarder instance(String _jdbcUrl) throws ClassNotFoundException, SQLException{
+		return new PhoenixForwarder(_jdbcUrl);
+	}
+	
 	public String getJdbcUrl() {
 		return jdbcUrl;
 	}
@@ -108,5 +112,11 @@ public class PhoenixForwarder implements ForwarderIfc {
 		
 		
 		return  res+"";
+	}
+
+	@Override
+	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attr) throws Throwable {
+
+		return forward(map,schema);
 	}
 }

@@ -108,4 +108,10 @@ public class HDFSForwarder implements ForwarderIfc {
 		}
 
 	}
+
+	@Override
+	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attr) throws Throwable {
+		// TODO Auto-generated method stub
+		return forward(map,schema);
+	}
 }
