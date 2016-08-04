@@ -23,6 +23,7 @@ import org.apache.spark.streaming.kafka.KafkaUtils;
 import com.neustar.iot.spark.forward.ForwarderIfc;
 import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
 import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
+import com.neustar.iot.spark.rules.RulesProxy;
 
 import io.parser.avro.AvroParser;
 import kafka.serializer.DefaultDecoder;
@@ -183,7 +184,7 @@ public final class SparkKafkaConsumer implements Serializable{
 								
 								}catch( Throwable e){
 									//check error and decide if to recycle msg if parser error.
-									e.printStackTrace();
+									log.error(e);
 								}
 									
 							}
@@ -252,7 +253,7 @@ public final class SparkKafkaConsumer implements Serializable{
 		return ret;
 	}
 	
-	protected void applyRules(Map<String, ?> msg) throws Throwable{
+	protected void applyRules1(Map<String, ?> msg) throws Throwable{
 
 				
 		log.debug("Save to DB  "+phoenix_zk_JDBC);	
@@ -269,13 +270,16 @@ public final class SparkKafkaConsumer implements Serializable{
 
 	}
 	
+	protected void applyRules(Map<String, ?> msg) throws Throwable{
+		RulesProxy.instance().executeRules(msg);
+	}
+	
 	
 	protected void writeToDB(Map<String, ?> map, String phoenix_zk_JDBC) throws Throwable{
 		Schema schema = retrieveLatestAvroSchema();
 		
 		ForwarderIfc phoenixConn = PhoenixForwarder.singleton(phoenix_zk_JDBC);	
 		phoenixConn.forward(map,schema);
-
 	}
 	
 	
@@ -299,7 +303,6 @@ public final class SparkKafkaConsumer implements Serializable{
 		} finally {
 			fs.close();
 		}
-
 	}
 
 	protected  boolean writeToHDFS(String pathStr, String data) throws IOException {
