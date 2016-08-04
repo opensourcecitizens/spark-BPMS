@@ -28,9 +28,9 @@ public class DroolsFunctionCallTest {
 		Schema schema = new Schema.Parser().parse(DroolsFunctionCallTest.class.getResourceAsStream("/drools/CustomMessage.avsc"));
 
 		GenericRecord mesg = new GenericData.Record(schema);		
-		mesg.put("id", "customer1");
+		mesg.put("id", "kaniu");
 		mesg.put("payload", "owners/143");//registry get
-		mesg.put("messagetype","NOTIFICATION");
+		mesg.put("messagetype","REGISTRY");
 		//create avro
 		byte[] avrodata = AvroUtils.serializeJson(mesg.toString(), schema);
 		
@@ -45,7 +45,7 @@ public class DroolsFunctionCallTest {
 		StatelessRuleRunner runner = new StatelessRuleRunner();
 		//String [] rules =  {"drools/RouteGenericMapDataRules.drl"};
 		
-		Resource resource = KieServices.Factory.get().getResources().newClassPathResource("drools/RouteGenericMapDataRules.drl");//ByteArrayResource(rulesStream,"UTF-8");
+		Resource resource = KieServices.Factory.get().getResources().newClassPathResource("drools/RouteGenericMapDataRules_default.drl");//ByteArrayResource(rulesStream,"UTF-8");
 		Resource [] rules = {resource};
 		Object [] facts = {map};
 		Object[] ret = runner.runRules(rules, facts);
@@ -60,7 +60,7 @@ public class DroolsFunctionCallTest {
 		
 		String customerId = (String) map.get("id");
 		System.out.println("uniqueid = "+customerId);;
-		InputStream rulesStream = RulesForwardWorker.retrieveRules(customerId);
+		InputStream rulesStream = new RulesForwardWorker().retrieveRules(customerId);
 		StringWriter writer = new StringWriter();
 		IOUtils.copy(rulesStream, writer);
 		
@@ -71,12 +71,10 @@ public class DroolsFunctionCallTest {
 		resource.setResourceType(ResourceType.DRL );
 		
 		Resource [] rules = {resource};
-		Object [] facts = {map};
+		Object [] facts = {map,map,map};
 		Object[] ret = runner.runRules(rules, facts);	
 		
 		String s = Arrays.toString(ret);
 		System.out.println(s);
-		
-		
 	}
 }

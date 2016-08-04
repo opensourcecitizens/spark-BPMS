@@ -2,22 +2,26 @@ package drools
  
 import java.util.Map;
 import java.lang.String;
-import com.neustar.iot.spark.rules.TransientWorker;
+import com.neustar.iot.spark.rules.RulesForwardWorker;
 
 
 dialect "java"
  
-/* Rule template for individual customization:
+/* 
+ * Rule template for individual customization:
  * This rule checks for message type in order to route
- * Routing may include more than one destination ie db, rest 
- *  //"REGISTRY" , "NOTIFICATION" , "TELEMETRY", "EXCEPTION" 
+ * Routing may include more than one destination i.e. db, rest 
+ * "REGISTRY", "NOTIFICATION", "TELEMETRY", "EXCEPTION" 
+ * kaniu preferences: 
+ * email: kaniu.ndungu@neustar.biz
+ * 
  */
 rule "Registry Put"
     when
         $messageMap : Map( this["messagetype"] == "REGISTRY" )             
     then
-    	TransientWorker worker = new TransientWorker();
-    	String ret = worker.remoteRestGet("someuniqueId", $messageMap);
+    	RulesForwardWorker worker = new RulesForwardWorker();
+    	String ret = worker.remoteRestGet($messageMap , null);
         System.out.println("Message sent to registry put returned : " + ret );
          $messageMap.put("result", ret);
 end
@@ -26,8 +30,8 @@ rule "Notification Put"
     when
         $messageMap : Map( this["messagetype"] == "NOTIFICATION" )             
     then
-    	TransientWorker worker = new TransientWorker();
-    	String ret = worker.remoteRestGet("someuniqueId", $messageMap);
+    	RulesForwardWorker worker = new RulesForwardWorker();
+    	String ret = worker.remoteRestGet($messageMap, null);
         System.out.println("Message sent to registry put returned : " + ret );
         $messageMap.put("result", ret);
 end

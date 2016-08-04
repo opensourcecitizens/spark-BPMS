@@ -48,7 +48,9 @@ public class RESTVolumeTest_with_DataProtocols {
 					producer.send(toAvro(
 							String.format("owners/143", System.nanoTime() * 1e-9, i),"REGISTRY"));
 					producer.send(toAvro(
-							String.format("{ \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i),"EXCEPTION"));
+							String.format("owners/315", System.nanoTime() * 1e-9, i),"REGISTRY"));
+					producer.send(toAvro(
+							String.format("\"t\":%.3f, \"k\":%d TEST EXCEPTION! ", System.nanoTime() * 1e-9, i),"EXCEPTION"));
 
 					System.out.println("Sent msg number " + i);
 				}
@@ -61,12 +63,18 @@ public class RESTVolumeTest_with_DataProtocols {
 		} finally {
 
 		}
+		
+		producer.close();
 
 	}
 	
+	private void close() {
+		executor.shutdown();
+	}
+
 	private static byte[] toAvro(String payload, String type) throws IOException{
 		GenericRecord mesg = new GenericData.Record(schema);		
-		mesg.put("id", "customer1");
+		mesg.put("id", "kaniu");
 		mesg.put("payload", payload);
 		mesg.put("messagetype", type);
 		//create avro
@@ -75,7 +83,7 @@ public class RESTVolumeTest_with_DataProtocols {
 	}
 
 	public static URLConnection openConnection() throws IOException {
-		URL url = new URL("http://ec2-52-38-19-146.us-west-2.compute.amazonaws.com:8090/gateway/queues");
+		URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8090/gateway/queues");
 		URLConnection connection = url.openConnection();
 		connection.setDoOutput(true);
 		connection.setRequestProperty("Authorization",

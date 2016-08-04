@@ -1,0 +1,37 @@
+package drools
+ 
+import java.util.Map;
+import java.lang.String;
+import com.neustar.iot.spark.rules.RulesForwardWorker;
+
+
+dialect "java"
+ 
+/* Rule template for individual customization:
+ * This rule checks for message type in order to route
+ * Routing may include more than one destination ie db, rest 
+ *  //"REGISTRY" , "NOTIFICATION" , "TELEMETRY", "EXCEPTION" 
+* customer2 preferences: 
+ * email: customer1@email.com
+ * sms: 415-400-5555
+ * twitter: @customer2
+ */
+rule "Registry Put"
+    when
+        $messageMap : Map( this["messagetype"] == "REGISTRY" )             
+    then
+    	RulesForwardWorker worker = new RulesForwardWorker();
+    	String ret = worker.remoteRestGet("someuniqueId", $messageMap);
+        System.out.println("Message sent to registry put returned : " + ret );
+         $messageMap.put("result", ret);
+end
+
+rule "Notification Put"
+    when
+        $messageMap : Map( this["messagetype"] == "NOTIFICATION" )             
+    then
+    	RulesForwardWorker worker = new RulesForwardWorker();
+    	String ret = worker.remoteRestGet("someuniqueId", $messageMap);
+        System.out.println("Message sent to registry put returned : " + ret );
+        $messageMap.put("result", ret);
+end
