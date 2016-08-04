@@ -101,7 +101,7 @@
 
 
 	<build>
-		<finalName>ds-kafkaprod-sparkconsumer</finalName>
+		<finalName>iot-kafkaprod-sparkconsumer</finalName>
 		<sourceDirectory>src</sourceDirectory>
 		<resources>
 			<resource>
