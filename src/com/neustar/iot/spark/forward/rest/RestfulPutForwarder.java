@@ -60,7 +60,7 @@ public class RestfulPutForwarder implements ForwarderIfc{
 		return webResource;
 	}
 	@Override
-	public String forward(Map<String, ?> map, Schema schema) throws Throwable {
+	public synchronized String forward(Map<String, ?> map, Schema schema) throws Throwable {
 		
 		/*
 				

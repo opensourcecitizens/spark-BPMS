@@ -47,7 +47,7 @@ public class DroolsFunctionCallTest {
 		
 		Resource resource = KieServices.Factory.get().getResources().newClassPathResource("drools/RouteGenericMapDataRules_default.drl");//ByteArrayResource(rulesStream,"UTF-8");
 		Resource [] rules = {resource};
-		Object [] facts = {map};
+		Object [] facts = {map,map,map};
 		Object[] ret = runner.runRules(rules, facts);
 		
 		
@@ -71,7 +71,7 @@ public class DroolsFunctionCallTest {
 		resource.setResourceType(ResourceType.DRL );
 		
 		Resource [] rules = {resource};
-		Object [] facts = {map,map,map};
+		Object [] facts = {map};
 		Object[] ret = runner.runRules(rules, facts);	
 		
 		String s = Arrays.toString(ret);

@@ -27,7 +27,6 @@ import org.junit.Test;
 
 import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
 
-import avro.TestAvro;
 import io.parser.avro.AvroParser;
 import io.parser.avro.AvroUtils;
 import io.parser.avro.phoenix.AvroToPhoenixMap;
@@ -94,7 +93,7 @@ public class TestPhoenixUsingDerby {
 			 System.out.println(e);
 		 }
 		 
-		 	Schema schema = new Schema.Parser().parse(TestAvro.class.getResourceAsStream("/CustomMessage.avsc"));
+		 	Schema schema = new Schema.Parser().parse(Class.class.getResourceAsStream("/CustomMessage.avsc"));
 			GenericRecord mesg = new GenericData.Record(schema);		
 			mesg.put("id", "device1");
 			mesg.put("payload", "{'type':'internal json'}");
@@ -129,7 +128,7 @@ public class TestPhoenixUsingDerby {
 			//PhoenixForwarder<String> phoenixConn = PhoenixForwarder.singleton(phoenix_zk_JDBC, new String());	
 			//phoenixConn.saveToJDBC(map,schema);
 			//phoenixConn.saveToJDBC(map);
-			System.out.println("Sent message "+res);
+			System.out.println("Sent message");
 	 }
 	 
 	 

@@ -16,7 +16,7 @@ rule "Registry Put"
     when
         $messageMap : Map( this["messagetype"] == "REGISTRY" )             
     then
-        worker = new RulesForwardWorker();
+        RulesForwardWorker worker = new RulesForwardWorker();
         rest_Uri =  new String("http://ec2-52-41-124-186.us-west-2.compute.amazonaws.com:8080");
         result = worker.remoteRestGet(rest_Uri, $messageMap,  null);
         

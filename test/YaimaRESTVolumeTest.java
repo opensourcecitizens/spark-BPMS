@@ -9,36 +9,24 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class RESTVolumeTest {
+public class YaimaRESTVolumeTest {
+	
 	ExecutorService executor = null;
 	{
-		executor = Executors.newFixedThreadPool(100);
+		executor = Executors.newFixedThreadPool(10);
 	}
 
 	public static void main(String args[]) {
 
-		RESTVolumeTest producer = new RESTVolumeTest();
+		YaimaRESTVolumeTest producer = new YaimaRESTVolumeTest();
 
 		try {
 
-			for (int i = 0; i < 10; i++) {
+			for (int i = 0; i < 1000; i++) {
 				// send lots of messages
 				producer.send(String.format("{\"type\":\"fast\", \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i));
-
-				// every so often send to a different topic
-				if (i % 1000 == 0) {
-					producer.send(
-							String.format("{\"type\":\"request\", \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i));
-					producer.send(
-							String.format("{\"type\":\"log\", \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i));
-					producer.send(
-							String.format("{\"type\":\"notice\", \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i));
-					producer.send(String.format("{\"type\":\"response\", \"t\":%.3f, \"k\":%d}",
-							System.nanoTime() * 1e-9, i));
-
-					System.out.println("Sent msg number " + i);
-				}
 			}
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
@@ -48,14 +36,18 @@ public class RESTVolumeTest {
 	}
 
 	public static URLConnection openConnection() throws IOException {
-		URL url = new URL("http://ec2-52-38-19-146.us-west-2.compute.amazonaws.com:8090/gateway/queues");
+		URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/api/queue/json/stream/topic/jsonexternaltopic?userid=yaima");
+		//URL url = new URL("http://localhost:8988/JsonGatewayWebService/api/queue/topic/stream/sometopic");
+		
 		URLConnection connection = url.openConnection();
 		connection.setDoOutput(true);
-		connection.setRequestProperty("Authorization",
-				"Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJqb2huLmRvZUBnbWFpbC5jb20iLCJyb2xlIjoiVVNFUiJ9.bZwX6cFExrcHm8P9onE_wTAkJlEeb8Qz4J2e7vqQSADplc5o9lWurlKi-xOdPU_wm0QlWaGIeLwzTZUQ97EC1g");
+		connection.setRequestProperty("Authentication",
+				"jwt_abc");
+		connection.setRequestProperty("API-KEY",
+				"123");
 		connection.setRequestProperty("Content-Type", "text/plain");
-		connection.setConnectTimeout(5000);
-		connection.setReadTimeout(5000);
+		connection.setConnectTimeout(1000);
+		connection.setReadTimeout(1000);
 		return connection;
 	}
 
@@ -74,11 +66,11 @@ public class RESTVolumeTest {
 		public String call() throws Exception {
 			StringBuilder resposneBuilder = new StringBuilder();
 			try {
-				URLConnection connection = RESTVolumeTest.openConnection();
+				URLConnection connection = YaimaRESTVolumeTest.openConnection();
 				OutputStreamWriter out = new OutputStreamWriter(connection.getOutputStream());
 				out.write(message);
 				out.close();
-
+				
 				BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
 
 				String response = null;
@@ -86,7 +78,7 @@ public class RESTVolumeTest {
 				while ((response = in.readLine()) != null) {
 					resposneBuilder.append(response).append(" ");
 				}
-				System.out.println("\nCrunchify REST Service Invoked Successfully..." + resposneBuilder);
+				System.out.println("\n REST Service Invoked Successfully with response..." + resposneBuilder.toString());
 				in.close();
 			} catch (Exception e) {
 				System.out.println("\nError while calling Crunchify REST Service");

@@ -7,25 +7,27 @@ import java.sql.SQLException;
 import java.util.Map;
 import java.util.Set;
 
+import javax.ws.rs.core.MediaType;
+
 import org.apache.avro.Schema;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
+import org.codehaus.jackson.map.ObjectMapper;
 
 import com.neustar.iot.spark.forward.ForwarderIfc;
+import com.sun.jersey.api.client.WebResource.Builder;
 
 public class HDFSForwarder implements ForwarderIfc {
 
 	Logger log = Logger.getLogger(HDFSForwarder.class);
 	private static final long serialVersionUID = 1L;
 
-	Connection conn = null;
-	PreparedStatement prepStmt = null;
-	String zookeeper_quorum = null;
-	private HDFSForwarder(String _zookeeper_quorum) throws SQLException, ClassNotFoundException {
-			zookeeper_quorum = _zookeeper_quorum;
+	String hdfsuri = null;
+	private HDFSForwarder(String uri) throws SQLException, ClassNotFoundException {
+			hdfsuri = uri;// = _zookeeper_quorum;
 	}
 	
 	private HDFSForwarder(){}
@@ -40,41 +42,37 @@ public class HDFSForwarder implements ForwarderIfc {
 		
 		return forwarderInstance;
 	} 
-	
-
 
 	
-	private Connection getConn() throws SQLException, ClassNotFoundException{
-		
-		return conn;
-	}
-	
-	public synchronized void closeConn() throws SQLException {
-		
-		
-	}
 	
 	@Override
 	public void finalize() throws Throwable{
-		closeConn();
+		
 		super.finalize();
 	}
 
 	
 
 	@Override
-	public String forward(Map<String, ?> map, Schema schema) throws Throwable {
-		Set<String> keyset = map.keySet();
-		int datasize = keyset.size();
-		
-		char[] qm = new char[datasize];
-		for(int i = 0; i < datasize; i++){
-			qm[i]='?';
+	public synchronized String forward(Map<String, ?> map, Schema schema) throws Throwable {
+
+		String ret = "SUCCESS";
+		try{
+			
+			ObjectMapper mapper = new ObjectMapper();
+			String json = mapper.writeValueAsString(map);
+			
+			appendToHDFS(hdfsuri,json);
+			
+			
+		}catch(Exception e){
+			log.error(e,e);
+			ret = "ERROR due to"+e.getMessage();
 		}
 		
+		log.info("appending to "+hdfsuri+" returned "+ret);
 		
-		
-		return  null;
+		return  ret;
 	}
 	
 	protected  Configuration createHDFSConfiguration() {
@@ -111,7 +109,6 @@ public class HDFSForwarder implements ForwarderIfc {
 
 	@Override
 	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attr) throws Throwable {
-		// TODO Auto-generated method stub
 		return forward(map,schema);
 	}
 }

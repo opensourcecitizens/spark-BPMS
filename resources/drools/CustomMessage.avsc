@@ -1,9 +1,0 @@
-{"namespace": "drools",
- "type": "record",
- "name": "CustomMessage",
- "fields": [
-     {"name": "id", "type": "string"},
-     {"name": "payload",  "type": "string"},
-     {"name": "messagetype",  "type": "string"}
- ]
-}

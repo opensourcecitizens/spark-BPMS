@@ -7,6 +7,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.avro.Schema;
 import org.apache.hadoop.conf.Configuration;
@@ -16,6 +17,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Logger;
 
+import com.neustar.iot.spark.AbstractStreamProcess;
 import com.neustar.iot.spark.forward.ForwarderIfc;
 import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
 import com.neustar.iot.spark.forward.rest.ElasticSearchPostForwarder;
@@ -26,7 +28,7 @@ import com.neustar.iot.spark.forward.rest.RestfulPutForwarder;
 /**This class abstracts forwarders from rules engine. 
  * This class will be instantiated in drools and return string values for reporting.
  * */
-public class RulesForwardWorker implements Serializable {
+public class RulesForwardWorker extends AbstractStreamProcess implements Serializable {
 	private static final Logger log = Logger.getLogger(RulesForwardWorker.class);
 	/**
 	 * 
@@ -61,7 +63,7 @@ public class RulesForwardWorker implements Serializable {
 	protected Schema readSchemaFromLocal(Schema.Parser parser) throws IOException{
 		//loadPropertiesFromDB();
 		
-		InputStream in = RulesForwardWorker.class.getClassLoader().getResourceAsStream("drools/CustomMessage.avsc");
+		InputStream in = RulesForwardWorker.class.getClassLoader().getResourceAsStream("CustomMessage.avsc");
 
 		Schema ret = null;
 		try {
@@ -71,30 +73,13 @@ public class RulesForwardWorker implements Serializable {
 		}
 		return ret;
 	}	
-	protected Schema readSchemaFromHDFS(Schema.Parser parser, String uri) throws IOException {
 
-		//loadPropertiesFromDB();
-
-		Configuration conf = new Configuration();
-		FileSystem fs = FileSystem.get(URI.create(uri), conf);
-		FSDataInputStream in = null;
-
-		Schema ret = null;
-		try {
-			in = fs.open(new Path(uri));
-			ret = parser.parse(in);
-		} finally {
-			IOUtils.closeStream(in);
-		}
-		return ret;
-	}
-
-	protected Schema retrieveLatestAvroSchema() throws IOException {
+	protected Schema retrieveLatestAvroSchema() throws IOException, ExecutionException {
 		
 		Schema.Parser parser = new Schema.Parser();
 		if(System.getenv("TEST")!=null && System.getenv("TEST").equalsIgnoreCase("TRUE"))return readSchemaFromLocal(parser);
 		
-		Schema schema = readSchemaFromHDFS(parser, avro_schema_hdfs_location);// parser.parse(SimpleAvroProducer.USER_SCHEMA);
+		Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);// parser.parse(SimpleAvroProducer.USER_SCHEMA);
 		return schema;
 	}
 
@@ -164,8 +149,9 @@ public class RulesForwardWorker implements Serializable {
 
 	static Map<String, String> rulesTempDB = new HashMap<String, String>() {
 		{
-			put("default", "drools/RouteGenericMapDataRules_kaniu.drl");
+			put("default", "drools/RouteGenericMapDataRules_default.drl");
 			put("kaniu", "drools/RouteGenericMapDataRules_kaniu.drl");
+			put("yaima", "drools/RouteGenericMapDataRules_yaima.drl");
 			put("customer1", "drools/RouteGenericMapDataRules_customer1.drl");
 			put("customer2", "drools/RouteGenericMapDataRules-customer2.drl");
 		}

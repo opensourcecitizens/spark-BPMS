@@ -1,0 +1,51 @@
+package drools
+ 
+import java.util.Map;
+import java.lang.String;
+import com.neustar.iot.spark.rules.RulesForwardWorker;
+
+
+global RulesForwardWorker worker 
+global String rest_Uri
+global String jdbc_url
+global String hdfs_url 
+
+dialect "mvel"
+ 
+/* Rule template for individual customization:
+ * This rule checks for message type in order to route
+ * Routing may include more than one destination ie db, rest 
+ *  //"REGISTRY" , "NOTIFICATION" , "TELEMETRY", "EXCEPTION" 
+ * kaniu preferences: 
+ * email: kaniu.ndungu@neustar.biz
+ * 
+ */
+/*
+rule "Registry Put"
+    when
+        $messageMap : Map( this["messagetype"] == "REGISTRY" )             
+    then
+   		worker = new RulesForwardWorker();
+    	rest_Uri =  new String("http://ec2-52-41-124-186.us-west-2.compute.amazonaws.com:8080");
+    	String ret = worker.remoteRestGet(rest_Uri, $messageMap,  null);
+        
+        $messageMap.put("endpoint_uri", rest_Uri);
+        $messageMap.put("result_registry", ret);
+        System.out.println("Message sent to registry put returned : " + ret );
+end
+*/
+
+
+rule "ElasticSearch Put"
+    when
+        $messageMap : Map( this["messagetype"] == "REGISTRY" )             
+    then
+   		RulesForwardWorker worker = new RulesForwardWorker();
+    	String rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex");
+    	String ret = worker.remoteElasticSearchPost(rest_Uri, $messageMap,  null);
+        
+        $messageMap.put("endpoint_uri", rest_Uri);
+        $messageMap.put("result_registry", ret);
+        System.out.println("Message sent to ElasticSearch returned : " + ret );
+end
+

@@ -8,6 +8,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
@@ -23,9 +24,12 @@ import org.apache.spark.streaming.kafka.KafkaUtils;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.neustar.iot.spark.AbstractStreamProcess;
 import com.neustar.iot.spark.forward.ForwarderIfc;
+import com.neustar.iot.spark.forward.kafka.KafkaForwarder;
 import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
 import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
+import com.neustar.iot.spark.rules.RulesForwardWorker;
 import com.neustar.iot.spark.rules.RulesProxy;
 
 import io.parser.avro.AvroParser;
@@ -33,6 +37,7 @@ import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 
 import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
@@ -44,6 +49,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -55,8 +61,8 @@ import java.util.concurrent.TimeUnit;
  * Reads from a topic specified in
  * producer.props. Writes to 3 outputs: HBase,HDFS, Rest
  */
-public final class SparkKafkaConsumer implements Serializable{
-	static final Logger log = Logger.getLogger(SparkKafkaConsumer.class);
+public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStreamProcess{
+	static final Logger log = Logger.getLogger(BusinessProcessAvroConsumerStreamProcess.class);
 
 	/**
 	 * 
@@ -70,11 +76,11 @@ public final class SparkKafkaConsumer implements Serializable{
 	private String avro_schema_hdfs_location = null;
 	private Properties properties = null;
 	
-	public SparkKafkaConsumer(String _topics, int _numThreads) throws IOException {
+	public BusinessProcessAvroConsumerStreamProcess(String _topics, int _numThreads) throws IOException {
 		topics_str=_topics;
 		numThreads=_numThreads;
 		
-		InputStream props = SparkKafkaConsumer.class.getClassLoader().getResourceAsStream("consumer.props");
+		InputStream props = BusinessProcessAvroConsumerStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
 		properties = new Properties();
 		properties.load(props);
 
@@ -96,7 +102,7 @@ public final class SparkKafkaConsumer implements Serializable{
 			
 		int numThreads = Integer.parseInt(args[1]);
 		
-		new SparkKafkaConsumer(args[0], numThreads).run();
+		new BusinessProcessAvroConsumerStreamProcess(args[0], numThreads).run();
 	}
 	
 	
@@ -135,22 +141,40 @@ public final class SparkKafkaConsumer implements Serializable{
 	    JavaDStream<Map<String,?>> lines = messages.map(new Function<Tuple2<String, byte[]>, Map<String,?>>() {
 			private static final long serialVersionUID = 1L;
 			String daily_hdfsfilename = new SimpleDateFormat("yyyyMMdd").format(new Date());
+			
 		@Override
 	      public Map<String,?> call(Tuple2<String, byte[]> tuple2) throws IOException, ClassNotFoundException, SQLException {
-
-				log.debug("Raw data : Append to hdfs");
-				appendToHDFS(hdfs_output_dir + "/RAW/_MSG_" + daily_hdfsfilename + ".txt", System.nanoTime() +" | "+  tuple2._2);
+				String parallelHash = Math.random()+"";
+				
+				log.debug("Raw data : Append to hdfs: key="+tuple2._1);
+				log.debug("Raw data : Append to hdfs: value="+String.valueOf(tuple2._2));
+				
+				System.out.println("Raw data : Append to hdfs: key="+tuple2._1);
+				System.out.println("Raw data : Append to hdfs: value="+String.valueOf(tuple2._2));
+				System.out.print("[");	
+				for(int i = 0 ; i < tuple2._2.length; i++){
+					System.out.print(tuple2._2[i]+",");	
+				}
+				System.out.print("]");	System.out.println("");	
+				
+				appendToHDFS(hdfs_output_dir + "/RAW/_MSG_" + daily_hdfsfilename +"/"+ parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2);
 
 				//parse - 
-				Map<String, ?> data = null;
+				Map<String, Object> data = null;
 				try {
-					data = parseAvroData(tuple2._2);
+					
+					
+					data = (Map<String, Object>) parseAvroData(tuple2._2,avro_schema_hdfs_location);
 					log.debug("Parsed data : Append to hdfs");
-					appendToHDFS(hdfs_output_dir + "/JSON/_MSG_" + daily_hdfsfilename + ".json",  parseAvroData(tuple2._2, new String()));
+					appendToHDFS(hdfs_output_dir + "/JSON/_MSG_" + daily_hdfsfilename +"/"+ parallelHash+ ".json",  parseAvroData(tuple2._2, avro_schema_hdfs_location, String.class));
 
 				} catch (Exception e) {
+					log.error(e,e);
 					//check error and decide if to recycle msg if parser error.
 					e.printStackTrace();
+					
+					reportException(data,e);
+					
 				}
 				
 			return data ;
@@ -158,7 +182,7 @@ public final class SparkKafkaConsumer implements Serializable{
 	    });
 
 	    //System.out.println(lines.count());
-	   //lines = lines.repartition(6);
+	   lines = lines.repartition(6);
 	    
 	    
 	    lines.foreachRDD(new Function<JavaRDD<Map<String,?>>, Void>() {
@@ -207,44 +231,11 @@ public final class SparkKafkaConsumer implements Serializable{
 		
 	}
 	
-	protected  Configuration createHDFSConfiguration() {
 
-		Configuration hadoopConfig = new Configuration();
-		hadoopConfig.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
-		hadoopConfig.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
+	
 
-		return hadoopConfig;
-	}
 	
-	protected Map<String,?> parseAvroData(byte[] avrodata) throws Exception{
-		Schema schema = retrieveLatestAvroSchema();
-		AvroParser<?> avroParser = new AvroParser<>(schema);
-		return avroParser.parse(avrodata, new HashMap<String,Object>());		
-	}
-	
-	protected String parseAvroData(byte[] avrodata, String type) throws Exception{
-		Schema schema = retrieveLatestAvroSchema();
-		AvroParser<String> avroParser = new AvroParser<String>(schema);
-		return avroParser.parse(avrodata, type);		
-	}
-	
-	/**
-	 * Added Guava caching
-	 * */
-	protected Schema retrieveLatestAvroSchema() throws IOException, ExecutionException{
-		CacheLoader<String,Schema> loader = new CacheLoader<String,Schema>(){
-			@Override
-			public Schema load(String key) throws Exception {
-				Schema.Parser parser = new Schema.Parser();
-				return readSchemaFromHDFS(parser, key);
-			}
-		};
-		
-		LoadingCache<String, Schema> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
-			
-		return cache.get(avro_schema_hdfs_location);		
-	}
-	
+
 	@Deprecated
 	protected Schema retrieveLatestAvroSchema_OLD() throws IOException, ExecutionException{
 		Schema schema = null;
@@ -253,55 +244,16 @@ public final class SparkKafkaConsumer implements Serializable{
 		return schema;
 	}
 	
-	protected Schema readSchemaFromHDFS(Schema.Parser parser,String uri) throws IOException{
-
-		Configuration conf = new Configuration();
-		FileSystem fs = FileSystem.get(URI.create(uri), conf);
-		FSDataInputStream in = null;
-		 
-		Schema ret = null;
-		try {
-			in = fs.open(new Path(uri));
-			ret = parser.parse(in);
-		} finally {
-			IOUtils.closeStream(in);
-		}
-		return ret;
-	}
-	
 	protected void applyRules(Map<String, ?> msg) throws Throwable{
 		RulesProxy.instance().executeRules(msg);
 	}
 	
 	
 	protected void writeToDB(Map<String, ?> map, String phoenix_zk_JDBC) throws Throwable{
-		Schema schema = retrieveLatestAvroSchema();
+		Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);
 		
 		ForwarderIfc phoenixConn = PhoenixForwarder.singleton(phoenix_zk_JDBC);	
 		phoenixConn.forward(map,schema);
-	}
-	
-	
-	protected  void appendToHDFS(String pathStr, String data) throws IOException {
-
-		Path path = new Path(pathStr);
-		Configuration conf = createHDFSConfiguration();
-		FileSystem fs = path.getFileSystem(conf);
-
-		try {
-
-			if (!fs.exists(path)) {
-				fs.create(path);
-				fs.setReplication(path,  (short)1);
-				fs.close();
-			}
-			 fs = path.getFileSystem(conf);
-			 fs.setReplication(path,  (short)1);
-			FSDataOutputStream out = fs.append(path);
-			out.writeUTF(data);
-		} finally {
-			fs.close();
-		}
 	}
 
 	protected  boolean writeToHDFS(String pathStr, String data) throws IOException {
@@ -325,9 +277,22 @@ public final class SparkKafkaConsumer implements Serializable{
 	@Deprecated
 	protected String remoteRest(Map<String, ?> map, String uri) throws Throwable{
 		ForwarderIfc forwarder = RestfulGetForwarder.singleton(uri);
-		Schema schema = retrieveLatestAvroSchema();
+		Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);
 		return forwarder.forward(map,schema);
 	}
 
+	
+	public void reportException(Map<String ,Object>data, Exception e){
+		try{
+		data.put("EXCEPTION", e.getMessage());
+		data.put("EXCEPTION CAUSE", e.getCause().getMessage());
+		//Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);
+		//ForwarderIfc kafka = new KafkaForwarder();
+		//kafka.forward(data, schema);
+		new RulesForwardWorker().remoteElasticSearchPost("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/exceptions", data, null);
+		}catch(Throwable e2){
+			log.error(e, e);
+		}
+	}
 
 }

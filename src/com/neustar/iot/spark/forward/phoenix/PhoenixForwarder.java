@@ -89,7 +89,7 @@ public class PhoenixForwarder implements ForwarderIfc {
 	
 
 	@Override
-	public String forward(Map<String, ?> map, Schema schema) throws Throwable {
+	public synchronized String forward(Map<String, ?> map, Schema schema) throws Throwable {
 		Set<String> keyset = map.keySet();
 		int datasize = keyset.size();
 		
