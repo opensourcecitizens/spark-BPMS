@@ -3,13 +3,8 @@ package com.neustar.iot.spark.kafka;
 import scala.Tuple2;
 
 import org.apache.avro.Schema;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
@@ -21,40 +16,31 @@ import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.neustar.iot.spark.AbstractStreamProcess;
 import com.neustar.iot.spark.forward.ForwarderIfc;
-import com.neustar.iot.spark.forward.kafka.KafkaForwarder;
 import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
 import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
 import com.neustar.iot.spark.rules.RulesForwardWorker;
 import com.neustar.iot.spark.rules.RulesProxy;
 
-import io.parser.avro.AvroParser;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 
 import java.io.BufferedWriter;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
-import java.io.Serializable;
-import java.net.URI;
+import java.net.URL;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Is a Kafka consumer using Spark api. 
@@ -74,6 +60,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	private String hdfs_output_dir = null;
 	private String rest_Uri = null;
 	private String avro_schema_hdfs_location = null;
+	private URL avro_schema_web_url = null;
 	private Properties properties = null;
 	
 	public BusinessProcessAvroConsumerStreamProcess(String _topics, int _numThreads) throws IOException {
@@ -91,6 +78,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 		phoenix_zk_JDBC = properties.getProperty("phoenix.zk.jdbc");
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
 		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
+		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
 		rest_Uri = properties.getProperty("rest.Uri");
 	}
 
@@ -164,9 +152,9 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 				try {
 					
 					
-					data = (Map<String, Object>) parseAvroData(tuple2._2,avro_schema_hdfs_location);
+					data = (Map<String, Object>) parseAvroData(tuple2._2,avro_schema_web_url);
 					log.debug("Parsed data : Append to hdfs");
-					appendToHDFS(hdfs_output_dir + "/JSON/_MSG_" + daily_hdfsfilename +"/"+ parallelHash+ ".json",  parseAvroData(tuple2._2, avro_schema_hdfs_location, String.class));
+					appendToHDFS(hdfs_output_dir + "/JSON/_MSG_" + daily_hdfsfilename +"/"+ parallelHash+ ".json",  parseAvroData(tuple2._2, avro_schema_web_url, String.class));
 
 				} catch (Exception e) {
 					log.error(e,e);
@@ -250,7 +238,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	
 	
 	protected void writeToDB(Map<String, ?> map, String phoenix_zk_JDBC) throws Throwable{
-		Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);
+		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 		
 		ForwarderIfc phoenixConn = PhoenixForwarder.singleton(phoenix_zk_JDBC);	
 		phoenixConn.forward(map,schema);
@@ -277,7 +265,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	@Deprecated
 	protected String remoteRest(Map<String, ?> map, String uri) throws Throwable{
 		ForwarderIfc forwarder = RestfulGetForwarder.singleton(uri);
-		Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);
+		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 		return forwarder.forward(map,schema);
 	}
 

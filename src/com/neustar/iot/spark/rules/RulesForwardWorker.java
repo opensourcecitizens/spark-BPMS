@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.net.URI;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -35,7 +36,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 	 */
 	private static final long serialVersionUID = 1L;
 	private static final String EXCEPTION = "EXCEPTION_";
-	private String avro_schema_hdfs_location = null;
+	private URL avro_schema_web_url = null;
 	private String user_rules_hdfs_location = null;
 	private Properties properties = null;
 
@@ -56,8 +57,9 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			properties.setProperty("group.id", "group-localtest");
 		}
 
-		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
 		user_rules_hdfs_location = properties.getProperty("rules.hdfs.location");
+		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
+		
 	}
 
 	protected Schema readSchemaFromLocal(Schema.Parser parser) throws IOException{
@@ -79,7 +81,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		Schema.Parser parser = new Schema.Parser();
 		if(System.getenv("TEST")!=null && System.getenv("TEST").equalsIgnoreCase("TRUE"))return readSchemaFromLocal(parser);
 		
-		Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);// parser.parse(SimpleAvroProducer.USER_SCHEMA);
+		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 		return schema;
 	}
 

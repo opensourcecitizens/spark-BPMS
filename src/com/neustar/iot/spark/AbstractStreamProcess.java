@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.net.URI;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -63,7 +64,7 @@ public abstract class AbstractStreamProcess implements Serializable{
 		}
 	}
 	
-	
+	@Deprecated
 	public synchronized Schema readSchemaFromHDFS(Schema.Parser parser,String uri) throws IOException{
 
 		Configuration conf = createHDFSConfiguration();
@@ -81,9 +82,20 @@ public abstract class AbstractStreamProcess implements Serializable{
 	}
 	
 	
+	public synchronized Schema readSchemaFromWeb(URL schemaUrl) throws IOException{
+
+		InputStream stream = schemaUrl.openStream();
+		Schema schema = new Schema.Parser().parse(stream);
+		 
+		return schema;
+	}
+	
+	
+	
 	/**
 	 * Added Guava caching
 	 * */
+	@Deprecated
 	public synchronized Schema retrieveLatestAvroSchema(String avro_schema_hdfs_location) throws IOException, ExecutionException{
 		CacheLoader<String,Schema> loader = new CacheLoader<String,Schema>(){
 			@Override
@@ -96,6 +108,21 @@ public abstract class AbstractStreamProcess implements Serializable{
 		LoadingCache<String, Schema> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
 			
 		return cache.get(avro_schema_hdfs_location);		
+	}
+	
+	
+	public synchronized Schema retrieveLatestAvroSchema(URL avroWebUrl) throws IOException, ExecutionException{
+		CacheLoader<URL,Schema> loader = new CacheLoader<URL,Schema>(){
+			@Override
+			public Schema load(URL key) throws Exception {
+				//Schema.Parser parser = new Schema.Parser();
+				return readSchemaFromWeb(key);
+			}
+		};
+		
+		LoadingCache<URL, Schema> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+			
+		return cache.get(avroWebUrl);		
 	}
 	
 	
@@ -116,15 +143,29 @@ public abstract class AbstractStreamProcess implements Serializable{
 		return cache.get(propfile);		
 	}
 	
-	
+	@Deprecated
 	public Map<String,?> parseAvroData(byte[] avrodata, String avro_schema_hdfs_location) throws Exception{
 		Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);
 		AvroParser<Map<String,?>> avroParser = new AvroParser<Map<String,?>>(schema);
 		return avroParser.parse(avrodata, new HashMap<String,Object>());		
 	}
 	
+	@Deprecated
 	public String parseAvroData(byte[] avrodata, String avro_schema_hdfs_location, Class<String> type) throws Exception{
 		Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);
+		AvroParser<String> avroParser = new AvroParser<String>(schema);
+		return avroParser.parse(avrodata, new String());		
+	}
+	
+	
+	public Map<String,?> parseAvroData(byte[] avrodata, URL avro_schema_web_url) throws Exception{
+		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
+		AvroParser<Map<String,?>> avroParser = new AvroParser<Map<String,?>>(schema);
+		return avroParser.parse(avrodata, new HashMap<String,Object>());		
+	}
+	
+	public  String parseAvroData(byte[] avrodata, URL avro_schema_web_url, Class<String> type) throws Exception{
+		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url );
 		AvroParser<String> avroParser = new AvroParser<String>(schema);
 		return avroParser.parse(avrodata, new String());		
 	}

@@ -4,6 +4,7 @@ import scala.Tuple2;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.commons.io.Charsets;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -31,6 +32,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -47,8 +49,8 @@ import java.util.concurrent.Future;
  * Reads from a topic specified in
  * producer.props. Writes to 3 outputs: HBase,HDFS, Rest
  */
-public final class SecurityAndAvroStandardizationStreamProcess extends AbstractStreamProcess{
-	static final Logger log = Logger.getLogger(SecurityAndAvroStandardizationStreamProcess.class);
+public final class SimplePayloadAvroStandardizationStreamProcess extends AbstractStreamProcess{
+	static final Logger log = Logger.getLogger(SimplePayloadAvroStandardizationStreamProcess.class);
 
 	/**
 	 * 
@@ -60,18 +62,18 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	private int numThreads;
 	private String hdfs_output_dir = null;
 	private String avro_schema_hdfs_location = null;
-	private URL avro_schema_web_url = null;
-	private static String APP_NAME="Json2AvroStreamProcess"; 
+	private URL avro_schema_web_url = null; 
+	private static String APP_NAME="SimplePayloadAvroStreamProcess"; 
 	
 	private Properties properties = null;
 	private Properties producerProperties = null;
 	
-	public SecurityAndAvroStandardizationStreamProcess(String _topics, int _numThreads, String _outTopic) throws IOException {
+	public SimplePayloadAvroStandardizationStreamProcess(String _topics, int _numThreads, String _outTopic) throws IOException {
 		inputTopics=_topics;
 		numThreads=_numThreads;
 		outputTopic=_outTopic;
 		
-		InputStream props = SecurityAndAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
+		InputStream props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
 		properties = new Properties();
 		properties.load(props);
 
@@ -79,7 +81,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 			properties.setProperty("group.id", "group-localtest");
 		}
 		
-		props = SecurityAndAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
+		props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
 		producerProperties = new Properties();
 		producerProperties.load(props);
 
@@ -87,18 +89,17 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
 		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
 		
-
 	}
 
 	public static void main(String[] args) throws IOException {
 		if (args.length < 3) {
-			System.err.println("Usage: "+APP_NAME+" <topics> <numThreads> <outputTopic>");
+			System.err.println("Usage: "+APP_NAME+" <inputTopics> <numThreads> <outputTopic>");
 			System.exit(1);
 		}
 			
 		int numThreads = Integer.parseInt(args[1]);
 		
-		new SecurityAndAvroStandardizationStreamProcess(args[0], numThreads, args[2]).run();
+		new SimplePayloadAvroStandardizationStreamProcess(args[0], numThreads, args[2]).run();
 	}
 	
 	
@@ -145,8 +146,13 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 				appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/RAW/_MSG_" + daily_hdfsfilename +"/"+parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2);
 
 				//parse - json 
-				Map<String, ?> data = null;
-				try {
+				Map<String, Object> data = new HashMap<String, Object>();
+				data.put("payload", new String(tuple2._2,Charsets.UTF_8 ));
+				data.put("messagetype", "REGISTRY_POST");
+				data.put("sourceid", "bogdan");
+				
+				/*
+				 try {
 					data = parseJsonData(tuple2._2);
 					log.debug("Parsed data : Append to hdfs");
 					appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/PARSED/_MSG_" + daily_hdfsfilename +"/"+parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2+" | "+  data);
@@ -157,6 +163,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 					e.printStackTrace();
 					log.error(e,e);
 				}
+				*/
 				
 			return data ;
 	      }

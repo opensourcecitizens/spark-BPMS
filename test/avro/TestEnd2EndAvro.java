@@ -1,6 +1,7 @@
 package avro;
 
 import java.io.IOException;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -23,9 +24,10 @@ import io.parser.avro.AvroUtils;
 
 public class TestEnd2EndAvro {
 	Schema schema = null;
+	String schemaUrl = "https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/0.0.1_20160928/NeustarMessage.avsc";
 	@Before
 	public void init() throws IOException{
-	 schema = new Schema.Parser().parse(Class.class.getResourceAsStream("/CustomMessage.avsc"));
+	 schema = new Schema.Parser().parse(new URL(schemaUrl).openStream());
 	}
 	
 	String message = "{\"deviceName\":\"Testing a very large avro message by adding this sentence: Maya's Monster Inc. Lamp Annd a very long sentence that makes this message even bigger for testing payload capacity\"}";

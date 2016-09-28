@@ -9,6 +9,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.ws.rs.core.MediaType;
+
 public class YaimaRESTVolumeTest {
 	
 	ExecutorService executor = null;
@@ -22,9 +24,11 @@ public class YaimaRESTVolumeTest {
 
 		try {
 
-			for (int i = 0; i < 1000; i++) {
+			for (int i = 0; i < 1; i++) {
 				// send lots of messages
-				producer.send(String.format("{\"type\":\"fast\", \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i));
+				producer.send(
+						"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}"
+						);
 			}
 			
 		} catch (Exception e) {
@@ -45,7 +49,7 @@ public class YaimaRESTVolumeTest {
 				"jwt_abc");
 		connection.setRequestProperty("API-KEY",
 				"123");
-		connection.setRequestProperty("Content-Type", "text/plain");
+		connection.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON);
 		connection.setConnectTimeout(1000);
 		connection.setReadTimeout(1000);
 		return connection;
