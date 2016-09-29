@@ -12,5 +12,6 @@ phoenix.zk.jdbc=jdbc:phoenix:ip-172-31-13-164.us-west-2.compute.internal,ip-172-
 hdfs.outputdir=hdfs://ip-172-31-33-199.us-west-2.compute.internal:8020/testdata/spark
 avro.schema.hdfs.location=hdfs://ip-172-31-33-199.us-west-2.compute.internal:8020/iotapps/avro/schema/spark/CustomMessage.avsc
 avro.schema.local.location=/Users/kndungu/Documents/workspace/iot_spark_kafka_consumer/resources/drools/CustomMessage.avsc
+avro.schema.web.url=https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/current/NeustarMessage.avsc
 rest.Uri=http://ec2-52-41-124-186.us-west-2.compute.amazonaws.com:8080
 rules.hdfs.location=hdfs://ip-172-31-33-199.us-west-2.compute.internal:8020/iotapps/rules

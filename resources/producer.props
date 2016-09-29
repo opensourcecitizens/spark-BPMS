@@ -8,3 +8,4 @@ linger.ms=0
 key.serializer=org.apache.kafka.common.serialization.StringSerializer
 value.serializer=org.apache.kafka.common.serialization.ByteArraySerializer
 block.on.buffer.full=true
+avro.schema.web.url=https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/current/NeustarMessage.avsc
