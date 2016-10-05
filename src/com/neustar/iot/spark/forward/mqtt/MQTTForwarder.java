@@ -38,29 +38,29 @@ public class MQTTForwarder implements ForwarderIfc {
 		broker=_broker;
 		clientId=_clientId;		
 	}
-	
+
 	private MQTTForwarder(){}
-	
+
 	private MqttClient clientConnection() throws IOException, MqttException {
-		
+
 		if(sampleClient==null ){
-		MemoryPersistence persistence = new MemoryPersistence();
-		sampleClient = new MqttClient(broker, clientId, persistence);
+			MemoryPersistence persistence = new MemoryPersistence();
+			sampleClient = new MqttClient(broker, clientId, persistence);
 		}
-		
+
 		if(!sampleClient.isConnected()){
 			MqttConnectOptions connOpts = new MqttConnectOptions();
 			//connOpts.setCleanSession(true);
-		System.out.println("Connecting to broker: " + broker);
-		sampleClient.connect(connOpts);
-		System.out.println("Connected");
-		
+			System.out.println("Connecting to broker: " + broker);
+			sampleClient.connect(connOpts);
+			System.out.println("Connected");
+
 		}
-		
-		
+
+
 		return sampleClient;
 	}
-	
+
 
 	@Override
 	public synchronized String forward(Map<String, ?> map, Schema schema) throws Throwable {
@@ -77,7 +77,7 @@ public class MQTTForwarder implements ForwarderIfc {
 		}
 		return  ret;
 	}
-	
+
 	protected  Configuration createHDFSConfiguration() {
 
 		Configuration hadoopConfig = new Configuration();
@@ -86,15 +86,15 @@ public class MQTTForwarder implements ForwarderIfc {
 
 		return hadoopConfig;
 	}
-	
+
 	private void sendMessage(byte[] message) throws MqttPersistenceException, MqttException, IOException{
-		
-			MqttMessage mqttmessage = new MqttMessage(message);
-			mqttmessage.setQos(qos);
-			clientConnection().publish(topic, mqttmessage);
-			System.out.println("Message published");
-		
-		
+
+		MqttMessage mqttmessage = new MqttMessage(message);
+		mqttmessage.setQos(qos);
+		clientConnection().publish(topic, mqttmessage);
+		System.out.println("Message published");
+
+
 	}
 
 	@Override
@@ -102,7 +102,7 @@ public class MQTTForwarder implements ForwarderIfc {
 		// TODO Auto-generated method stub
 		return forward(map,schema);
 	}
-	
+
 	@Override
 	public void finalize() throws Throwable{
 		super.finalize();
@@ -112,7 +112,7 @@ public class MQTTForwarder implements ForwarderIfc {
 			}finally{
 				//nothing
 			}
-         System.out.println("Disconnected");
-         
+		System.out.println("Disconnected");
+
 	}
 }

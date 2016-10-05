@@ -44,8 +44,8 @@ import java.util.concurrent.Future;
 
 /**
  * Is a Kafka consumer using Spark api. 
- * Reads from a topic specified in
- * producer.props. Writes to 3 outputs: HBase,HDFS, Rest
+ * Reads from a topic args[]
+ * Checks message source and packages json/message as avro payload.
  */
 public final class SecurityAndAvroStandardizationStreamProcess extends AbstractStreamProcess{
 	static final Logger log = Logger.getLogger(SecurityAndAvroStandardizationStreamProcess.class);
@@ -63,15 +63,15 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	private URL avro_schema_web_url = null;
 	private static String APP_NAME="Json2AvroStreamProcess"; 
 	
-	private Properties properties = null;
-	private Properties producerProperties = null;
+	//private Properties properties = null;
+	//private Properties producerProperties = null;
 	
 	public SecurityAndAvroStandardizationStreamProcess(String _topics, int _numThreads, String _outTopic) throws IOException {
 		inputTopics=_topics;
 		numThreads=_numThreads;
 		outputTopic=_outTopic;
 		
-		InputStream props = SecurityAndAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
+/*		InputStream props = SecurityAndAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
 		properties = new Properties();
 		properties.load(props);
 
@@ -81,7 +81,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		
 		props = SecurityAndAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
 		producerProperties = new Properties();
-		producerProperties.load(props);
+		producerProperties.load(props);*/
 
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
 		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
@@ -108,8 +108,8 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		//StreamingExamples.setStreamingLogLevels();
 		SparkConf sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.driver.allowMultipleContexts","true");
 		
-		// Create the context with 2 seconds batch size
-		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(2000));
+		// Create the context with 1000 milliseconds batch size
+		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(1000));
 		
 		Map<String, Integer> topicMap = new HashMap<>();
 		String[] topics = inputTopics.split(",");
@@ -120,7 +120,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		 // Create direct kafka stream with brokers and topics
 		 Set<String> topicsSet = new HashSet<>(Arrays.asList(inputTopics.split(",")));
 		 Map<String, String> kafkaParams = new HashMap<>();
-		    kafkaParams.put("metadata.broker.list", properties.getProperty("bootstrap.servers"));
+		 kafkaParams.put("metadata.broker.list", properties.getProperty("bootstrap.servers"));
 		    
 	    JavaPairInputDStream<String, byte[]> messages = KafkaUtils.createDirectStream(
 	        jssc,
@@ -142,14 +142,14 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	      public Map<String,?> call(Tuple2<String, byte[]> tuple2) throws IOException, ClassNotFoundException, SQLException {
 				String parallelHash = Math.random()+"";
 				log.debug("Raw data : Append to hdfs");
-				appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/RAW/_MSG_" + daily_hdfsfilename +"/"+parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2);
+				appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2+"\n");
 
 				//parse - json 
 				Map<String, ?> data = null;
 				try {
 					data = parseJsonData(tuple2._2);
 					log.debug("Parsed data : Append to hdfs");
-					appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/PARSED/_MSG_" + daily_hdfsfilename +"/"+parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2+" | "+  data);
+					appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/PARSED/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2+" | "+  data+"\n");
 
 
 				} catch (Exception e) {

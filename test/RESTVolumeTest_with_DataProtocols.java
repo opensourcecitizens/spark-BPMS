@@ -45,7 +45,7 @@ public class RESTVolumeTest_with_DataProtocols {
 	static Schema schema = null;
 	static {
 		try {
-			schema = new Schema.Parser().parse(Class.class.getResourceAsStream("/CustomMessage.avsc"));
+			schema = new Schema.Parser().parse(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/current/NeustarMessage.avsc").openStream());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -63,27 +63,23 @@ public class RESTVolumeTest_with_DataProtocols {
 		
 		try {
 			int i;
-			for ( i = 0; i < 1; i++) {
+			for ( i = 0; i < 100000; i++) {
 				// send lots of messages
 				//producer.send(toAvro(String.format("{ \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i),"NOTIFICATION"));
 
 				// every so often send to a different topic
-				if (i % 2 == 0) {
-					/*producer.send(toAvro(
+				/*if (i % 2 == 0) {
+					producer.send(toAvro(
 							String.format("owners/143", System.nanoTime() * 1e-9, i),"TELEMETRY"));
-					producer.send(toAvro(
-							String.format("owners/315", System.nanoTime() * 1e-9, i),"TELEMETRY"));
-					producer.send(toAvro(
-							String.format("\"t\":%.3f, \"k\":%d TEST EXCEPTION! ", System.nanoTime() * 1e-9, i),"EXCEPTION"));
-
-					System.out.println("Sent msg number " + i);
+			
+				}else 
 					*/
-				}
-				
-				 byte[] bytes = toAvro(
+					byte[] bytes = toAvro(
 							"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}","TELEMETRY");
 
+				 
 			        producer.send(bytes);
+					
 				
 				
 			}

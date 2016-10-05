@@ -26,10 +26,11 @@ public class PhoenixForwarder implements ForwarderIfc {
 	Connection conn = null;
 	PreparedStatement prepStmt = null;
 	private String jdbcUrl = null;
+	private String tablename = "TEST_TABLE";
 
-
-	private PhoenixForwarder(String _zookeeper_quorum) throws SQLException, ClassNotFoundException {
-			jdbcUrl = _zookeeper_quorum;
+	private PhoenixForwarder(String _jdbcUrl, String _tablename) throws SQLException, ClassNotFoundException {
+			jdbcUrl = _jdbcUrl;
+			tablename = _tablename;
 	}
 	
 	private PhoenixForwarder(){}
@@ -46,8 +47,8 @@ public class PhoenixForwarder implements ForwarderIfc {
 		return singleton;
 	} 
 	
-	public static PhoenixForwarder instance(String _jdbcUrl) throws ClassNotFoundException, SQLException{
-		return new PhoenixForwarder(_jdbcUrl);
+	public static PhoenixForwarder instance(String _jdbcUrl, String _tablename) throws ClassNotFoundException, SQLException{
+		return new PhoenixForwarder(_jdbcUrl, _tablename);
 	}
 	
 	public String getJdbcUrl() {
@@ -98,7 +99,7 @@ public class PhoenixForwarder implements ForwarderIfc {
 			qm[i]='?';
 		}
 		
-		prepStmt = getConn().prepareStatement("UPSERT INTO TEST_TABLE ( "+Arrays.toString(keyset.toArray()).replace("[", "").replace("]", "")+",CREATED_TIME) "
+		prepStmt = getConn().prepareStatement("UPSERT INTO "+tablename+" ( "+Arrays.toString(keyset.toArray()).replace("[", "").replace("]", "")+",CREATED_TIME) "
 				+ "VALUES("+Arrays.toString(qm).replace("[", "").replace("]", "")+", ? )");
 		
 		AvroToPhoenixMap sqlMapping = new AvroToPhoenixMap();

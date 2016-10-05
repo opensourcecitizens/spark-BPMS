@@ -56,24 +56,26 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	private static final long serialVersionUID = 1L;
 	private String topics_str = null;
 	private int numThreads;
+	
 	private String phoenix_zk_JDBC = null;
 	private String hdfs_output_dir = null;
 	private String rest_Uri = null;
 	private String avro_schema_hdfs_location = null;
 	private URL avro_schema_web_url = null;
-	private Properties properties = null;
+	//private Properties properties = null;
+	private static String APP_NAME ="BusinessProcessStreamProcessor";
 	
 	public BusinessProcessAvroConsumerStreamProcess(String _topics, int _numThreads) throws IOException {
 		topics_str=_topics;
 		numThreads=_numThreads;
 		
-		InputStream props = BusinessProcessAvroConsumerStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
+		/*InputStream props = BusinessProcessAvroConsumerStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
 		properties = new Properties();
 		properties.load(props);
 
 		if (properties.getProperty("group.id") == null) {
 			properties.setProperty("group.id", "group-localtest");
-		}
+		}*/
 		
 		phoenix_zk_JDBC = properties.getProperty("phoenix.zk.jdbc");
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
@@ -98,10 +100,10 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	public void run() throws IOException{
 		
 		//StreamingExamples.setStreamingLogLevels();
-		SparkConf sparkConf = new SparkConf().setAppName("SparkConsumer").set("spark.driver.allowMultipleContexts","true");
+		SparkConf sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.driver.allowMultipleContexts","true");
 		
-		// Create the context with 2 seconds batch size
-		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(2000));
+		// Create the context with 1000 milliseconds batch size
+		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(1000));
 		
 		Map<String, Integer> topicMap = new HashMap<>();
 		String[] topics = topics_str.split(",");
@@ -145,8 +147,8 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 				}
 				System.out.print("]");	System.out.println("");	
 				
-				appendToHDFS(hdfs_output_dir + "/RAW/_MSG_" + daily_hdfsfilename +"/"+ parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2);
-
+				//appendToHDFS(hdfs_output_dir + "/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2);
+				appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+ "/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2+"\n");
 				//parse - 
 				Map<String, Object> data = null;
 				try {
@@ -154,7 +156,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 					
 					data = (Map<String, Object>) parseAvroData(tuple2._2,avro_schema_web_url);
 					log.debug("Parsed data : Append to hdfs");
-					appendToHDFS(hdfs_output_dir + "/JSON/_MSG_" + daily_hdfsfilename +"/"+ parallelHash+ ".json",  parseAvroData(tuple2._2, avro_schema_web_url, String.class));
+					appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json",  parseAvroData(tuple2._2, avro_schema_web_url, String.class)+"\n");
 
 				} catch (Exception e) {
 					log.error(e,e);
@@ -170,7 +172,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	    });
 
 	    //System.out.println(lines.count());
-	   lines = lines.repartition(6);
+	   //lines = lines.repartition(6);//causing failure -- why? was working ok before.
 	    
 	    
 	    lines.foreachRDD(new Function<JavaRDD<Map<String,?>>, Void>() {
@@ -236,7 +238,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 		RulesProxy.instance().executeRules(msg);
 	}
 	
-	
+	@Deprecated
 	protected void writeToDB(Map<String, ?> map, String phoenix_zk_JDBC) throws Throwable{
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 		
@@ -270,17 +272,6 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	}
 
 	
-	public void reportException(Map<String ,Object>data, Exception e){
-		try{
-		data.put("EXCEPTION", e.getMessage());
-		data.put("EXCEPTION CAUSE", e.getCause().getMessage());
-		//Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);
-		//ForwarderIfc kafka = new KafkaForwarder();
-		//kafka.forward(data, schema);
-		new RulesForwardWorker().remoteElasticSearchPost("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/exceptions", data, null);
-		}catch(Throwable e2){
-			log.error(e, e);
-		}
-	}
+
 
 }

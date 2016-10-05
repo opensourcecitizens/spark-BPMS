@@ -27,7 +27,22 @@ import com.neustar.iot.spark.forward.mqtt.MQTTForwarder;
 import io.parser.avro.AvroUtils;
 
 public class MQTTVolumeTest_with_DataProtocols {
+	ExecutorService executor = null;
+	static Schema schema = null;
+	static {
+		try {
+			schema = new Schema.Parser().parse(Class.class.getResourceAsStream("/CustomMessage.avsc"));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 	
+	{
+		executor = Executors.newFixedThreadPool(10);
+		
+	}
+
 	
 	@Test
 	public void singleMessage() throws Exception{
@@ -48,10 +63,6 @@ public class MQTTVolumeTest_with_DataProtocols {
 
 	        producer.send(bytes);
 
-	    
-
-	        
-	        //close();
 	}
 
 	
@@ -78,21 +89,6 @@ public class MQTTVolumeTest_with_DataProtocols {
 		 
 	}
 	
-	ExecutorService executor = null;
-	static Schema schema = null;
-	static {
-		try {
-			schema = new Schema.Parser().parse(Class.class.getResourceAsStream("/CustomMessage.avsc"));
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-	
-	{
-		executor = Executors.newFixedThreadPool(10);
-		
-	}
 
 	public static void main(String args[]) throws IOException {
 

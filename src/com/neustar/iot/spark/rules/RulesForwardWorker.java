@@ -85,10 +85,10 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		return schema;
 	}
 
-	public String writeToDB(String phoenix_zk_JDBC,Map<String, ?> map, Map<String, ?> attr ) {
+	public String writeToDB(String phoenix_zk_JDBC,String tablename , Map<String, ?> map, Map<String, ?> attr ) {
 
 		try {
-			ForwarderIfc phoenixConn = PhoenixForwarder.instance(phoenix_zk_JDBC);
+			ForwarderIfc phoenixConn = PhoenixForwarder.instance(phoenix_zk_JDBC,tablename);
 			Schema schema = retrieveLatestAvroSchema();
 			return phoenixConn.forward(map, schema, attr);
 		} catch (Throwable e) {

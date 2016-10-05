@@ -65,15 +65,15 @@ public final class SimplePayloadAvroStandardizationStreamProcess extends Abstrac
 	private URL avro_schema_web_url = null; 
 	private static String APP_NAME="SimplePayloadAvroStreamProcess"; 
 	
-	private Properties properties = null;
-	private Properties producerProperties = null;
+	//private Properties properties = null;
+	//private Properties producerProperties = null;
 	
 	public SimplePayloadAvroStandardizationStreamProcess(String _topics, int _numThreads, String _outTopic) throws IOException {
 		inputTopics=_topics;
 		numThreads=_numThreads;
 		outputTopic=_outTopic;
 		
-		InputStream props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
+		/*InputStream props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
 		properties = new Properties();
 		properties.load(props);
 
@@ -83,7 +83,7 @@ public final class SimplePayloadAvroStandardizationStreamProcess extends Abstrac
 		
 		props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
 		producerProperties = new Properties();
-		producerProperties.load(props);
+		producerProperties.load(props);*/
 
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
 		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
@@ -109,8 +109,8 @@ public final class SimplePayloadAvroStandardizationStreamProcess extends Abstrac
 		//StreamingExamples.setStreamingLogLevels();
 		SparkConf sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.driver.allowMultipleContexts","true");
 		
-		// Create the context with 2 seconds batch size
-		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(2000));
+		// Create the context with 1000 milliseconds batch size
+		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(1000));
 		
 		Map<String, Integer> topicMap = new HashMap<>();
 		String[] topics = inputTopics.split(",");
@@ -143,7 +143,7 @@ public final class SimplePayloadAvroStandardizationStreamProcess extends Abstrac
 	      public Map<String,?> call(Tuple2<String, byte[]> tuple2) throws IOException, ClassNotFoundException, SQLException {
 				String parallelHash = Math.random()+"";
 				log.debug("Raw data : Append to hdfs");
-				appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/RAW/_MSG_" + daily_hdfsfilename +"/"+parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2);
+				appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2+"\n");
 
 				//parse - json 
 				Map<String, Object> data = new HashMap<String, Object>();
