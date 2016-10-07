@@ -6,6 +6,8 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriBuilder;
 
 import org.apache.avro.Schema;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
 
 import com.neustar.iot.spark.forward.ForwarderIfc;
 import com.sun.jersey.api.client.Client;
@@ -61,22 +63,12 @@ public class RestfulPutForwarder implements ForwarderIfc{
 	}
 	@Override
 	public synchronized String forward(Map<String, ?> map, Schema schema) throws Throwable {
-		
-		/*
-				
-				MultivaluedMap formData = new MultivaluedMapImpl();
-		 		formData.add('name1', 'val1');
-		  		formData.add('name2', 'val2');
-		  		
-		  		builder.put(ClientResponse.class,formData);
-		 */
-		
 		String path = (String) map.get("payload");
 		
 		webResource = getWebResource().path(path);
 		Builder builder = webResource.accept(MediaType.APPLICATION_JSON);
 		builder.type(MediaType.APPLICATION_JSON);
-		builder.header("API-KEY", "1");
+		//builder.header("API-KEY", "1");
 
 		ClientResponse cliResponse = builder.put(ClientResponse.class);
 		
@@ -84,9 +76,36 @@ public class RestfulPutForwarder implements ForwarderIfc{
 	}
 	
 	@Override
-	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attr) throws Throwable {
+	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attrMap) throws Throwable {
 
-		return forward(map,schema);
+			String payloadJsonStr = (String) map.get("payload");
+			//System.out.println(payloadJsonStr);
+			
+			ObjectMapper mapper = new ObjectMapper();
+			Map<String,?> payload = 	mapper.readValue(payloadJsonStr, new TypeReference<Map<String, ?>>(){});	
+			
+			Map<String, ?> attr = mapper.readValue(mapper.writeValueAsString(attrMap), new TypeReference<Map<String, ?>>(){});
+			//System.out.println(mapper.writeValueAsString(attrMap));
+			String path = attr.get("path").toString();	
+			//System.out.println(path);
+			
+		
+			Map<String,?> headerMap = mapper.readValue( attr.get("header").toString(),new TypeReference<Map<String, ?>>(){});
+			String apikey = headerMap.get("API-KEY").toString();
+			//System.out.println(apikey);
+			
+			String contentType = headerMap.get("Content-Type")!=null?headerMap.get("Content-Type").toString():MediaType.APPLICATION_JSON;
+			//System.out.println(contentType);
+
+			
+			webResource = getWebResource().path(path);
+			Builder builder = webResource.accept(MediaType.APPLICATION_JSON);
+			builder.header("API-KEY", apikey);
+			ClientResponse cliResponse = builder.type(contentType).put(ClientResponse.class, mapper.writeValueAsString(payload));
+			
+			return cliResponse.getEntity(String.class);
+			//return forward(map,schema);
+		
 	}
 	
 	public String getUri() {

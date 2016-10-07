@@ -1,5 +1,6 @@
 
 import java.io.IOException;
+import java.net.URL;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.Map;
@@ -31,7 +32,7 @@ public class MQTTVolumeTest_with_DataProtocols {
 	static Schema schema = null;
 	static {
 		try {
-			schema = new Schema.Parser().parse(Class.class.getResourceAsStream("/CustomMessage.avsc"));
+			schema = new Schema.Parser().parse(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/current/NeustarMessage.avsc").openStream());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
