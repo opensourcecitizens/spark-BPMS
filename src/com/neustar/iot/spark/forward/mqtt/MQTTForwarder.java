@@ -38,6 +38,10 @@ public class MQTTForwarder implements ForwarderIfc {
 		broker=_broker;
 		clientId=_clientId;		
 	}
+	
+	public MQTTForwarder(String _broker) throws SQLException, ClassNotFoundException {
+		broker=_broker;		
+	}
 
 	private MQTTForwarder(){}
 
@@ -99,7 +103,11 @@ public class MQTTForwarder implements ForwarderIfc {
 
 	@Override
 	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attr) throws Throwable {
-		// TODO Auto-generated method stub
+		
+		topic = (String) attr.get("topic");
+		qos =attr.get("qos")==null?1:(Integer)attr.get("qos");
+		clientId=(String) attr.get("clientId");	
+
 		return forward(map,schema);
 	}
 

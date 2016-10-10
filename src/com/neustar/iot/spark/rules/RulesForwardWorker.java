@@ -116,7 +116,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 	}
 	
 	
-	public String remoteMQTTCall(Map<String,?> mqttParams, Map<String, ?> map,  Map<String, ?> attr) {
+	public String remoteMQTTCall(String brokerUri, Map<String, ?> map,  Map<String, ?> attr) {
 		try {
 			Schema schema = retrieveLatestAvroSchema();
 			/*
@@ -124,13 +124,14 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			int qos = 2;
 			String broker = "tcp://ec2-52-42-35-89.us-west-2.compute.amazonaws.com:1883";
 			String clientId = "JavaSample";
-			*/	
-			String topic = (String) mqttParams.get("topic");
-			int qos = (Integer) mqttParams.get("qos");
-			String broker = (String) mqttParams.get("broker");;
-			String clientId = (String) mqttParams.get("clientId");
 			
-			MQTTForwarder forwarder = new MQTTForwarder(broker,  topic,  qos,  clientId);
+			String topic = (String) attr.get("topic");
+			int qos = attr.get("qos")==null?1:(Integer) attr.get("qos");
+			String broker = brokerUri;//(String) attr.get("broker");;
+			String clientId = (String) attr.get("clientId");
+			*/
+			
+			MQTTForwarder forwarder = new MQTTForwarder(brokerUri);
 			
 			return forwarder.forward(map, schema, attr);
 		} catch (Throwable e) {
