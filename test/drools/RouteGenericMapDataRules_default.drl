@@ -75,6 +75,7 @@ rule "Registry Put"
        	insertLogical( new RegistryResult( $messageMap,result,rest_Uri ) );
 end
 
+
 rule "Process Successful Registry results"
 	when
 		$messageMap : Map( )
