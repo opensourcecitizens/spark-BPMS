@@ -11,15 +11,20 @@ import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Logger;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
 
 import com.neustar.iot.spark.AbstractStreamProcess;
 import com.neustar.iot.spark.forward.ForwarderIfc;
+import com.neustar.iot.spark.forward.mqtt.MQTTForwarder;
 import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
 import com.neustar.iot.spark.forward.rest.ElasticSearchPostForwarder;
 import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
@@ -103,6 +108,30 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 
 			ForwarderIfc forwarder = RestfulPutForwarder.instance(rest_Uri);
 			Schema schema = retrieveLatestAvroSchema();
+			return forwarder.forward(map, schema, attr);
+		} catch (Throwable e) {
+			log.error(e);
+			return EXCEPTION+e.getMessage();
+		}
+	}
+	
+	
+	public String remoteMQTTCall(Map<String,?> mqttParams, Map<String, ?> map,  Map<String, ?> attr) {
+		try {
+			Schema schema = retrieveLatestAvroSchema();
+			/*
+			String topic = "test/my/in";
+			int qos = 2;
+			String broker = "tcp://ec2-52-42-35-89.us-west-2.compute.amazonaws.com:1883";
+			String clientId = "JavaSample";
+			*/	
+			String topic = (String) mqttParams.get("topic");
+			int qos = (Integer) mqttParams.get("qos");
+			String broker = (String) mqttParams.get("broker");;
+			String clientId = (String) mqttParams.get("clientId");
+			
+			MQTTForwarder forwarder = new MQTTForwarder(broker,  topic,  qos,  clientId);
+			
 			return forwarder.forward(map, schema, attr);
 		} catch (Throwable e) {
 			log.error(e);

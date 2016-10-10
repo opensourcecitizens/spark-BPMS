@@ -114,8 +114,6 @@ public class TestDroolsAnsForwarders {
 
 			runRules(map);
 			
-			
-			
 	 }
 
 

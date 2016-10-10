@@ -14,6 +14,27 @@ global String result
 
 dialect "java"
 
+declare RegistryResult
+    message : Map
+    result: String
+    endpoint: String
+end
+
+declare DashBoardData
+    message : Map
+    type: String
+end
+
+rule "Dashboard Reporting"
+    when
+         $dashBoardData : DashBoardData()
+    then
+        worker = new RulesForwardWorker();
+        rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/"+$dashBoardData.getType());
+        String ret = worker.remoteElasticSearchPost(rest_Uri, $dashBoardData.getMessage(),  null);
+
+        System.out.println("Message sent to ElasticSearch returned : " + ret );
+end
 
 rule "Registry Post"
     when
@@ -21,18 +42,17 @@ rule "Registry Post"
     then
         worker = new RulesForwardWorker();
         rest_Uri =  new String("http://54.149.9.196:8080");
+        
         attrMap = new HashMap<String,Object>();
-			attrMap.put("path", "/api/v1/devices/54919CA5-4101-4AE4-595B-353C51AA983C/rshadow");
-			attrMap.put("header", "{\"API-KEY\": \"2\",\"Content-Type\": \"application/json\"}");
+		attrMap.put("path", "/api/v1/devices/54919CA5-4101-4AE4-595B-353C51AA983C/rshadow");
+		attrMap.put("header", "{\"API-KEY\": \"2\",\"Content-Type\": \"application/json\"}");
 			
         result = worker.remoteRestPost(rest_Uri, $messageMap,  attrMap);
 
         $messageMap.put("endpoint_uri", rest_Uri);
         $messageMap.put("result", result);
-        System.out.println("Message sent to registry put returned : " + result );
-        rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/registry");
-        String ret = worker.remoteElasticSearchPost(rest_Uri, $messageMap,  null);
-        System.out.println("Message sent to ElasticSearch returned : " + ret );
+		 
+		insertLogical( new RegistryResult( $messageMap,result,rest_Uri ) );
 end
 
 
@@ -42,29 +62,45 @@ rule "Registry Put"
     then
         worker = new RulesForwardWorker();
         rest_Uri =  new String("http://54.149.9.196:8080");
+        
         attrMap = new HashMap<String,Object>();
-			attrMap.put("path", "/api/v1/devices/update");
-			attrMap.put("header", "{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
+		attrMap.put("path", "/api/v1/devices/update");
+		attrMap.put("header", "{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
 			
         result = worker.remoteRestPut(rest_Uri, $messageMap,  attrMap);
 
         $messageMap.put("endpoint_uri", rest_Uri);
         $messageMap.put("result", result);
-        System.out.println("Message sent to registry put returned : " + result );
-        rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/registry");
-        String ret = worker.remoteElasticSearchPost(rest_Uri, $messageMap,  null);
-        System.out.println("Message sent to ElasticSearch returned : " + ret );
+        
+       	insertLogical( new RegistryResult( $messageMap,result,rest_Uri ) );
 end
 
-rule "ElasticSearch Post"
+rule "Process Successful Registry results"
+	when
+		$messageMap : Map( )
+			RegistryResult(message == $messageMap && result contains "SUCCESS" )		
+	then
+		System.out.println("Message sent to registry put/post returned SUCCESS: " + $messageMap.get("result") );
+		System.out.println("Now sending to MQTT and awaiting response ");
+		//worker = new RulesForwardWorker();	
+		//result = worker.remoteRestPut(rest_Uri, $messageMap,  attrMap);
+		//insertLogical( new DashBoardData($messageMap,$messageMap.get("messagetype").toString() ) );
+end
+	
+rule "Process Failed Registry results"
+	when
+		$messageMap : Map( )
+			RegistryResult(message == $messageMap && result contains "ERROR" )
+				
+	then
+		System.out.println("Message sent to registry put returned ERROR: " + $messageMap.get("result") );
+		insertLogical( new DashBoardData($messageMap,new String("exception") ));
+end	
+	
+rule "Handle Notifications"
     when
          $messageMap : Map( this["messagetype"] == "NOTIFICATION" )
     then
-                worker = new RulesForwardWorker();
-        rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/registry");
-        String ret = worker.remoteElasticSearchPost(rest_Uri, $messageMap,  null);
-
-        $messageMap.put("endpoint_uri", rest_Uri);
-        $messageMap.put("result_registry", ret);
-        System.out.println("Message sent to ElasticSearch returned : " + ret );
+       insertLogical( new DashBoardData($messageMap,new String("notification") ));
 end
+
