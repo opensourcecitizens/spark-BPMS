@@ -42,6 +42,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 	private static final long serialVersionUID = 1L;
 	private static final String EXCEPTION = "EXCEPTION_";
 	private URL avro_schema_web_url = null;
+	private URL registry_avro_schema_web_url = null;
 	private String user_rules_hdfs_location = null;
 	private Properties properties = null;
 
@@ -64,7 +65,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 
 		user_rules_hdfs_location = properties.getProperty("rules.hdfs.location");
 		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
-		
+		registry_avro_schema_web_url = properties.getProperty("registry.avro.schema.web.url")!=null?new URL(properties.getProperty("registry.avro.schema.web.url")):null;
 	}
 
 	protected Schema readSchemaFromLocal(Schema.Parser parser) throws IOException{
@@ -83,10 +84,13 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 
 	protected Schema retrieveLatestAvroSchema() throws IOException, ExecutionException {
 		
-		Schema.Parser parser = new Schema.Parser();
-		if(System.getenv("TEST")!=null && System.getenv("TEST").equalsIgnoreCase("TRUE"))return readSchemaFromLocal(parser);
-		
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
+		return schema;
+	}
+	
+	protected Schema retrieveLatestRegistryAvroSchema() throws IOException, ExecutionException {
+		
+		Schema schema = retrieveLatestAvroSchema(registry_avro_schema_web_url);
 		return schema;
 	}
 
@@ -116,9 +120,14 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 	}
 	
 	
-	public String remoteMQTTCall(String brokerUri, Map<String, ?> map,  Map<String, ?> attr) {
+	public String remoteMQTTCall(String brokerUri,String clientId, Map<String, ?> map,  Map<String, ?> attr, Boolean ... registry) {
 		try {
-			Schema schema = retrieveLatestAvroSchema();
+			
+			Schema schema = null;
+			if(registry!=null || registry[0]==false)
+				schema = retrieveLatestAvroSchema();
+			else
+				schema = retrieveLatestRegistryAvroSchema();
 			/*
 			String topic = "test/my/in";
 			int qos = 2;
@@ -131,7 +140,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			String clientId = (String) attr.get("clientId");
 			*/
 			
-			MQTTForwarder forwarder = new MQTTForwarder(brokerUri);
+			ForwarderIfc forwarder = new MQTTForwarder(brokerUri,clientId);
 			
 			return forwarder.forward(map, schema, attr);
 		} catch (Throwable e) {
@@ -140,6 +149,40 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		}
 	}
 
+	
+	public String subscribeToMQTT(String brokerUri,String clientId,  Map<String, ?> attr, Boolean ... registry) {
+		try {
+			
+			Schema schema = null;
+			if(registry!=null || registry[0]==false)
+				schema = retrieveLatestAvroSchema();
+			else
+				schema = retrieveLatestRegistryAvroSchema();
+			/*
+			String topic = "test/my/in";
+			int qos = 2;
+			String broker = "tcp://ec2-52-42-35-89.us-west-2.compute.amazonaws.com:1883";
+			String clientId = "JavaSample";
+			
+			String topic = (String) attr.get("topic");
+			int qos = attr.get("qos")==null?1:(Integer) attr.get("qos");
+			String broker = brokerUri;//(String) attr.get("broker");;
+			String clientId = (String) attr.get("clientId");
+			*/
+			
+			MQTTForwarder forwarder = new MQTTForwarder(brokerUri,clientId);
+			forwarder.subscribe(attr);
+			byte[] results = forwarder.pollMessage(6000);//wait for 6 seconds
+			ObjectMapper mapper = new ObjectMapper();
+			return mapper.readValue(results, String.class);
+			//return results;
+		} catch (Throwable e) {
+			log.error(e);
+			//return EXCEPTION+e.getMessage();
+		}
+		return null;
+	}
+	
 	public String remoteRestGet(String rest_Uri, Map<String, ?> map,  Map<String, ?> attr) {
 
 		try {

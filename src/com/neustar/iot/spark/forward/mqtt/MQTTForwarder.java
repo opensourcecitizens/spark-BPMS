@@ -2,13 +2,18 @@ package com.neustar.iot.spark.forward.mqtt;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.avro.Schema;
-import org.apache.hadoop.conf.Configuration;
 
 import org.apache.log4j.Logger;
+import org.codehaus.jackson.JsonGenerationException;
+import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
@@ -20,7 +25,7 @@ import com.neustar.iot.spark.forward.ForwarderIfc;
 
 import io.parser.avro.AvroUtils;
 
-public class MQTTForwarder implements ForwarderIfc {
+public class MQTTForwarder implements ForwarderIfc , MqttCallback {
 
 	Logger log = Logger.getLogger(MQTTForwarder.class);
 	private static final long serialVersionUID = 1L;
@@ -42,6 +47,11 @@ public class MQTTForwarder implements ForwarderIfc {
 	public MQTTForwarder(String _broker) throws SQLException, ClassNotFoundException {
 		broker=_broker;		
 	}
+	
+	public MQTTForwarder(String _broker, String _clientId) throws SQLException, ClassNotFoundException {
+		broker=_broker;	
+		clientId=_clientId;	
+	}
 
 	private MQTTForwarder(){}
 
@@ -61,11 +71,19 @@ public class MQTTForwarder implements ForwarderIfc {
 
 		}
 
-
 		return sampleClient;
 	}
 
+	@Override
+	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attr) throws Throwable {
+		
+		topic = (String) attr.get("topic");
+		qos =attr.get("qos")==null?1:(Integer)attr.get("qos");
+		clientId=attr.get("clientId")==null?clientId:(String) attr.get("clientId");	
 
+		return forward(map,schema);
+	}
+	
 	@Override
 	public synchronized String forward(Map<String, ?> map, Schema schema) throws Throwable {
 
@@ -82,15 +100,6 @@ public class MQTTForwarder implements ForwarderIfc {
 		return  ret;
 	}
 
-	protected  Configuration createHDFSConfiguration() {
-
-		Configuration hadoopConfig = new Configuration();
-		hadoopConfig.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
-		hadoopConfig.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
-
-		return hadoopConfig;
-	}
-
 	private void sendMessage(byte[] message) throws MqttPersistenceException, MqttException, IOException{
 
 		MqttMessage mqttmessage = new MqttMessage(message);
@@ -99,16 +108,6 @@ public class MQTTForwarder implements ForwarderIfc {
 		System.out.println("Message published");
 
 
-	}
-
-	@Override
-	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attr) throws Throwable {
-		
-		topic = (String) attr.get("topic");
-		qos =attr.get("qos")==null?1:(Integer)attr.get("qos");
-		clientId=(String) attr.get("clientId");	
-
-		return forward(map,schema);
 	}
 
 	@Override
@@ -123,4 +122,53 @@ public class MQTTForwarder implements ForwarderIfc {
 		System.out.println("Disconnected");
 
 	}
+
+	@Override
+	public void connectionLost(Throwable arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void deliveryComplete(IMqttDeliveryToken arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+	
+	public void subscribe(Map<String, ?> attr) throws Throwable {
+		
+		topic = (String) attr.get("topic");
+		qos =attr.get("qos")==null?1:(Integer)attr.get("qos");
+		clientId=attr.get("clientId")==null?clientId: (String)attr.get("clientId");	
+		
+		MqttMessage mqttmessage = new MqttMessage();
+		mqttmessage.setQos(qos);
+		clientConnection().subscribe(topic);
+	}
+
+	Set<byte[]>messageSet = new HashSet<byte[]>();
+	@Override
+	public void messageArrived(String topic, MqttMessage message) throws Exception {
+		
+		byte[] payloadbytes = message.getPayload();
+		messageSet.add(payloadbytes);
+		
+	}
+	/***/
+	public byte[] pollMessage(final int milliTimeout) throws InterruptedException, JsonGenerationException, JsonMappingException, IOException {
+		int currentTimeout = milliTimeout;
+		do{
+			if(messageSet.isEmpty()){
+				Thread.currentThread().sleep(1);
+			}else{
+				byte[]  message = messageSet.iterator().next();
+				messageSet.remove(messageSet);
+				return message;
+			};
+			
+		}while(--currentTimeout!=0);
+		
+		return new ObjectMapper().writeValueAsBytes("{\"result\":\"Timeout exception - no results within timeout period ="+milliTimeout+"\"}");
+	}
+	
 }

@@ -5,7 +5,7 @@ import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
 public class ForwarderFactory {
 
 	enum Type{
-		PHOENIX, REST, HDFS
+		PHOENIX, REST_GET,REST_POST,REST_PUT, HDFS
 	}
 	
 	static ForwarderIfc get(Type type){

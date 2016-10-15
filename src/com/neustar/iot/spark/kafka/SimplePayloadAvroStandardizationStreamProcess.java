@@ -61,7 +61,6 @@ public final class SimplePayloadAvroStandardizationStreamProcess extends Abstrac
 	
 	private int numThreads;
 	private String hdfs_output_dir = null;
-	private String avro_schema_hdfs_location = null;
 	private URL avro_schema_web_url = null; 
 	private static String APP_NAME="SimplePayloadAvroStreamProcess"; 
 	
@@ -86,7 +85,6 @@ public final class SimplePayloadAvroStandardizationStreamProcess extends Abstrac
 		producerProperties.load(props);*/
 
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
-		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
 		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
 		
 	}

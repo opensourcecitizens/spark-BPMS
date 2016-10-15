@@ -6,8 +6,10 @@ import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -56,13 +58,15 @@ public class MQTTVolumeTest_with_DataProtocols {
 	}
 	
 	@Test
-	public void sendLargeMessage() throws IOException{
-		RESTVolumeTest_with_DataProtocols producer = new RESTVolumeTest_with_DataProtocols();
+	public void sendLargeMessage() throws IOException, InterruptedException, ExecutionException{
+		MQTTVolumeTest_with_DataProtocols producer = new MQTTVolumeTest_with_DataProtocols();
 		
 		 byte[] bytes = toAvro(
 					"mqtt just testing a sentence with Maya's Monster Inc. Lamp Annd a very long sentence that makes this message even bigger for testing payload capacity","TELEMETRY");
 
-	        producer.send(bytes);
+	     Future<String> ret =   producer.send(bytes);
+	        
+	     System.out.println(ret.get());
 
 	}
 
@@ -187,8 +191,8 @@ public class MQTTVolumeTest_with_DataProtocols {
          
 	}
 
-	public void send(byte[] message) {
-		executor.submit(new Sender(message));
+	public Future<String> send(byte[] message) {
+		return executor.submit(new Sender(message));
 	}
 
 	class Sender implements Callable<String> , MqttCallback {
