@@ -33,9 +33,6 @@ public class RESTVolumeTest_with_DataProtocols {
 					"kn 1 just testing a sentence with Maya's Monster Inc. Lamp And a very long sentence that makes this message even bigger for testing payload capacity","TELEMETRY");
 
 	        producer.send(bytes);
-
-	        
-
 	        
 	        //close();
 	}
@@ -63,7 +60,7 @@ public class RESTVolumeTest_with_DataProtocols {
 		
 		try {
 			int i;
-			for ( i = 0; i < 100000; i++) {
+			for ( i = 0; i < 10; i++) {
 				// send lots of messages
 				//producer.send(toAvro(String.format("{ \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i),"NOTIFICATION"));
 
@@ -105,7 +102,7 @@ public class RESTVolumeTest_with_DataProtocols {
 		mesg.put("sourceid", "kaniu");
 		mesg.put("payload", payload);
 		mesg.put("messagetype", type);
-		mesg.put("createdate",  DateFormat.getDateInstance().format(new Date())+"");
+		mesg.put("createdate",  DateFormat.getDateTimeInstance().format(new Date())+"");
 		mesg.put("messageid", UUID.randomUUID()+"");
 		//create avro
 		byte[] avro = AvroUtils.serializeJson(mesg.toString(), schema);

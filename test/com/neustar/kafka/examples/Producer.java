@@ -56,7 +56,7 @@ public class Producer extends Consumer {
 
             KafkaProducer<String, byte[]> producer = new KafkaProducer<String,byte[]>(properties);
       
-            String topic = properties.getProperty("topic.id");//"testexternaltopic";
+            String topic =  properties.getProperty("topic.id");//"testexternaltopic";
         try {
         		Schema schema = this.retrieveLatestAvroSchema(avro_schema_hdfs_location);
         		byte[] avro = toAvro(args[0], "TELEMETRY", schema);

@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -19,6 +20,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Logger;
+import org.codehaus.jackson.JsonGenerationException;
+import org.codehaus.jackson.map.JsonMappingException;
+import org.codehaus.jackson.map.ObjectMapper;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -28,6 +32,7 @@ import com.neustar.iot.spark.kafka.SimplePayloadAvroStandardizationStreamProcess
 import com.neustar.iot.spark.rules.RulesForwardWorker;
 
 import io.parser.avro.AvroParser;
+import io.parser.avro.AvroUtils;
 
 public abstract class AbstractStreamProcess implements Serializable{
 
@@ -213,6 +218,16 @@ public abstract class AbstractStreamProcess implements Serializable{
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url );
 		AvroParser<String> avroParser = new AvroParser<String>(schema);
 		return avroParser.parse(avrodata, new String());		
+	}
+	
+	public GenericRecord createGenericRecord(Map<String,?> map, Schema schema) throws JsonGenerationException, JsonMappingException, IOException{
+
+		ObjectMapper mapper = new ObjectMapper();
+		String json = mapper.writeValueAsString( map);
+		byte[] avro = AvroUtils.serializeJson(json, schema);
+		GenericRecord record = AvroUtils.avroToJava(avro, schema);
+		
+		return record;
 	}
 
 	public void reportException(Map<String ,Object>data, Exception e){

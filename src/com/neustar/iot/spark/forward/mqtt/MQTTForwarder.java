@@ -7,7 +7,9 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.avro.Schema;
-
+import org.apache.avro.generic.GenericData.Record;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.log4j.Logger;
 import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.map.JsonMappingException;
@@ -91,8 +93,8 @@ public class MQTTForwarder implements ForwarderIfc , MqttCallback {
 		try{	
 			ObjectMapper mapper = new ObjectMapper();
 			String json = mapper.writeValueAsString(map);
-			byte[] avrobytes = AvroUtils.serializeJson(json, schema);
-			sendMessage(avrobytes);
+			//byte[] avrobytes = AvroUtils.serializeJava(map, schema);
+			sendMessage(json.getBytes());
 		}catch(Exception e){
 			log.error(e,e);
 			ret="EXCEPTION caused by "+e.getMessage();

@@ -40,8 +40,8 @@ public class YaimaRESTVolumeTest {
 	}
 
 	public static URLConnection openConnection() throws IOException {
-		URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/api/queue/json/stream/topic/jsonexternaltopic?userid=yaima");
-		//URL url = new URL("http://localhost:8988/JsonGatewayWebService/api/queue/topic/stream/sometopic");
+		//URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/api/queue/json/stream/topic/jsonexternaltopic?userid=yaima");
+		URL url = new URL("http://localhost:8988/JsonGatewayWebService/api/queue/json/stream/topic/jsonexternaltopic?userid=yaima");
 		
 		URLConnection connection = url.openConnection();
 		connection.setDoOutput(true);

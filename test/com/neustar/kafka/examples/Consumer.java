@@ -46,7 +46,7 @@ public class Consumer extends AbstractStreamProcess {
 	String avro_schema_hdfs_location = null;
 	private Properties properties = null;
 	public Consumer(){
-		InputStream props = BusinessProcessAvroConsumerStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
+		InputStream props = Consumer.class.getClassLoader().getResourceAsStream("consumer.props");
 		properties = new Properties();
 		try {
 			properties.load(props);

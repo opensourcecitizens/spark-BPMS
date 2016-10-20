@@ -11,16 +11,12 @@ import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.type.TypeReference;
 
 import com.neustar.iot.spark.AbstractStreamProcess;
 import com.neustar.iot.spark.forward.ForwarderIfc;
@@ -124,21 +120,10 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		try {
 			
 			Schema schema = null;
-			if(registry!=null || registry[0]==false)
+			if(registry==null || registry[0]==false)
 				schema = retrieveLatestAvroSchema();
 			else
 				schema = retrieveLatestRegistryAvroSchema();
-			/*
-			String topic = "test/my/in";
-			int qos = 2;
-			String broker = "tcp://ec2-52-42-35-89.us-west-2.compute.amazonaws.com:1883";
-			String clientId = "JavaSample";
-			
-			String topic = (String) attr.get("topic");
-			int qos = attr.get("qos")==null?1:(Integer) attr.get("qos");
-			String broker = brokerUri;//(String) attr.get("broker");;
-			String clientId = (String) attr.get("clientId");
-			*/
 			
 			ForwarderIfc forwarder = new MQTTForwarder(brokerUri,clientId);
 			
@@ -150,29 +135,13 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 	}
 
 	
-	public String subscribeToMQTT(String brokerUri,String clientId,  Map<String, ?> attr, Boolean ... registry) {
+	public String subscribeToMQTT(String brokerUri,String clientId,  Map<String, ?> attr, Integer ... timeout ) {
 		try {
-			
-			Schema schema = null;
-			if(registry!=null || registry[0]==false)
-				schema = retrieveLatestAvroSchema();
-			else
-				schema = retrieveLatestRegistryAvroSchema();
-			/*
-			String topic = "test/my/in";
-			int qos = 2;
-			String broker = "tcp://ec2-52-42-35-89.us-west-2.compute.amazonaws.com:1883";
-			String clientId = "JavaSample";
-			
-			String topic = (String) attr.get("topic");
-			int qos = attr.get("qos")==null?1:(Integer) attr.get("qos");
-			String broker = brokerUri;//(String) attr.get("broker");;
-			String clientId = (String) attr.get("clientId");
-			*/
-			
+
+			int pollingtimeout = timeout!=null&&timeout[0]!=0?timeout[0]:6000;
 			MQTTForwarder forwarder = new MQTTForwarder(brokerUri,clientId);
 			forwarder.subscribe(attr);
-			byte[] results = forwarder.pollMessage(6000);//wait for 6 seconds
+			byte[] results = forwarder.pollMessage(pollingtimeout);//wait for 6 seconds
 			ObjectMapper mapper = new ObjectMapper();
 			return mapper.readValue(results, String.class);
 			//return results;

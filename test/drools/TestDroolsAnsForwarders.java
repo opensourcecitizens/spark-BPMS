@@ -164,13 +164,9 @@ public class TestDroolsAnsForwarders {
 			mesg.put("sourceid", "device1");
 			
 
-			
-			//ObjectMapper mapper = new ObjectMapper();
-			//Map<String,Object> map = mapper.readValue("{\"id\":\"000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==\",\"data\":{\"value\":\"false\"}}", Map.class);
-			
-			//Map<String,Object> map = new HashMap<String,Object>();
-			//map.put("id", "000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==");
-			//map.put("data", "{\"value\":\"false\"}");
+			/*
+			 * {"path":"/a/light","verb":"POST","payload":"{\"value\":true}","header":"hub-request","txId":"a37183ac-ba57-4213-a7f3-1c1608ded09e","deviceId":"RaspiLightUUID-Demo"}
+			 * */
 			RemoteRequest remotejson =  RemoteRequest.builder().build();
 			remotejson.setPath("/api/v1/devices");
 			remotejson.setPayload("{\"id\":\"000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==\",\"data\":{\"value\":\"false\"}}");
@@ -187,10 +183,11 @@ public class TestDroolsAnsForwarders {
 			GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
 			remotemesg.put("path", "/api/v1/devices");
 			remotemesg.put("payload","{\"value\":\"false\"}");
-			remotemesg.put("deviceId","000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==");
-			remotemesg.put("header","{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
-			remotemesg.put("txId","someTextid");
-			remotemesg.put("verb","update");
+			remotemesg.put("deviceId","RaspiLightUUID-Demo");
+			remotemesg.put("header","hub-request");
+			remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
+			remotemesg.put("verb","POST");
+			
 			
 			byte[] payloadavro = AvroUtils.serializeJava(remotemesg, schema_remoteReq);
 			GenericRecord genericPayload = AvroUtils.avroToJava(payloadavro, schema_remoteReq);
@@ -251,10 +248,10 @@ public class TestDroolsAnsForwarders {
 			GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
 			remotemesg.put("path", "/api/v1/devices");
 			remotemesg.put("payload","{\"value\":\"false\"}");
-			remotemesg.put("deviceId","000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==");
-			remotemesg.put("header","{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
-			remotemesg.put("txId","someTextid");
-			remotemesg.put("verb","update");
+			remotemesg.put("deviceId","RaspiLightUUID-Demo");
+			remotemesg.put("header","hub-request");
+			remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
+			remotemesg.put("verb","POST");
 			
 			byte[] payloadavro = AvroUtils.serializeJava(remotemesg, schema_remoteReq);
 			GenericRecord genericPayload = AvroUtils.avroToJava(payloadavro, schema_remoteReq);

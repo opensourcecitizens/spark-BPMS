@@ -43,18 +43,6 @@ declare DashBoardData
     type: String
 end
 
-rule "Dashboard Reporting"
-    when
-         $dashBoardData : DashBoardData()
-    then
-    	System.out.println("****** Dashboard Reporting ******");
-        worker = new RulesForwardWorker();
-        rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/"+$dashBoardData.getType());
-        String ret = worker.remoteElasticSearchPost(rest_Uri, $dashBoardData.getMessage(),  null);
-
-        System.out.println("Message sent to ElasticSearch returned : " + ret );
-end
-
 
 rule "Incoming Registry Post"
     when
@@ -114,9 +102,8 @@ rule "Process Successful Registry results"
 		System.out.println("Now sending to MQTT and awaiting response ");
 		
 		attrMap = new HashMap<String,Object>();
-		attrMap.put("topic", "test/my/in");
+		attrMap.put("topic", "device/+/in");
 		attrMap.put("qos", 2);
-		//attrMap.put("clientId", "JavaSample");
 
 		String mqttBrokerUri = new String("tcp://ec2-52-42-35-89.us-west-2.compute.amazonaws.com:1883");	
 		worker = new RulesForwardWorker();	
@@ -148,24 +135,24 @@ rule "Send Registry response to MQTT"
 		Map regPayloadMap = (Map)message.get("registrypayload");
 		String deviceId = (String)regPayloadMap.get("deviceId");
 		attrMap = new HashMap<String,Object>();
-		attrMap.put("topic", deviceId+"/out");
+		attrMap.put("topic", "device/"+deviceId+"/in");
 		attrMap.put("qos", 2);
-		//attrMap.put("clientId", "JavaSample");
 		worker = new RulesForwardWorker();	
-		result = worker.remoteMQTTCall(mqttBrokerUri,"JavaSample", message,  attrMap,  false);
+		result = worker.remoteMQTTCall(mqttBrokerUri,"JavaSample", regPayloadMap,  attrMap,  true);
 		message.put("result",result);
 		System.out.println( message);
-		System.out.println("Message sent to MQTT returned: " + message.get("result") );
-				
-		attrMap = new HashMap<String,Object>();
-		attrMap.put("topic", deviceId+"/in");
-		attrMap.put("qos", 2);
-		result = worker.subscribeToMQTT(mqttBrokerUri,"JavaSample", attrMap,false);
-		message.put("result",result);
-		System.out.println( message);
-		System.out.println("Message sent to MQTT returned: " + message.get("result") );
-				
+		System.out.println("Message sent to MQTT returned: " + result);
+		
 		insertLogical( new MQTTResult(message,result,mqttBrokerUri ));
+				
+		//attrMap = new HashMap<String,Object>();
+		//attrMap.put("topic", "device/"+deviceId+"/out");
+		//attrMap.put("qos", 2);
+		//result = worker.subscribeToMQTT(mqttBrokerUri,"JavaSample", attrMap,10000);
+		//message.put("result",result);
+		//System.out.println( message);
+		//System.out.println("Message sent to MQTT returned: " + message.get("result") );			
+		//insertLogical( new MQTTResult(message,result,mqttBrokerUri ));
 end	
 
 rule "Process MQTT Error Response"
@@ -185,14 +172,26 @@ rule "Process MQTT Successful Response"
 		$mqttResult : MQTTResult( result contains "SUCCESS" )			
 	then
 		System.out.println("****** Process MQTT Successful Response ******");
-		//String mqttReply = 
 		Map message = $mqttResult.getMessage();
-		message.put("messagetype","REGISTRY_PUT");
-		message.put("payload",$mqttResult.getResult());
-		System.out.println($mqttResult.getResult());
+		//message.put("messagetype","REGISTRY_POST");
+		//message.put("payload",$mqttResult.getResult());
+		//System.out.println($mqttResult.getResult());
 		//System.out.println(message);
-		insertLogical(  message );
+		//insertLogical(  message );
+		insertLogical( new DashBoardData(message,new String("success") ));
 end	
+
+rule "Dashboard Reporting"
+    when
+         $dashBoardData : DashBoardData()
+    then
+    	System.out.println("****** Dashboard Reporting ******");
+        worker = new RulesForwardWorker();
+        rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/"+$dashBoardData.getType());
+        String ret = worker.remoteElasticSearchPost(rest_Uri, $dashBoardData.getMessage(),  null);
+
+        System.out.println("Message sent to ElasticSearch returned : " + ret );
+end
 	
 rule "Handle Notifications"
     when
