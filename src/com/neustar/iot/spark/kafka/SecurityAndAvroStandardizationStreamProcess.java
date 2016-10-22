@@ -65,6 +65,8 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	
 	//private Properties properties = null;
 	//private Properties producerProperties = null;
+	@SuppressWarnings("unused")
+	private SecurityAndAvroStandardizationStreamProcess(){}
 	
 	public SecurityAndAvroStandardizationStreamProcess(String _topics, int _numThreads, String _outTopic) throws IOException {
 		inputTopics=_topics;
@@ -83,6 +85,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		producerProperties = new Properties();
 		producerProperties.load(props);*/
 
+		producerProperties.setProperty("topic.id", _outTopic);
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
 		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
 		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
@@ -200,6 +203,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 									//check error and decide if to recycle msg if parser error.
 									log.error(e,e);
 									e.printStackTrace();
+									throw e;
 								}
 									
 							}
@@ -242,6 +246,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	protected synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String, ?> msg, Properties props) throws IOException, ExecutionException {
 		
 		//create generic avro record 
+		
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 
 		GenericRecordBuilder outMap =  new GenericRecordBuilder(schema);
@@ -266,7 +271,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		//kafka.send(message, outputTopic);
 
 		KafkaProducer<String, byte[]> producer = new KafkaProducer<String, byte[]>(props);
-		Future<RecordMetadata> response = producer.send(new ProducerRecord<String, byte[]>(outputTopic, avro));
+		Future<RecordMetadata> response = producer.send(new ProducerRecord<String, byte[]>(props.getProperty("topic.id"), avro));
 		
 		
 		return response;

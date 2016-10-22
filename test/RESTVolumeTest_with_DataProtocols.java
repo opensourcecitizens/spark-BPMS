@@ -1,5 +1,6 @@
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -29,12 +30,15 @@ public class RESTVolumeTest_with_DataProtocols {
 	public void sendLargeMessage() throws IOException{
 		RESTVolumeTest_with_DataProtocols producer = new RESTVolumeTest_with_DataProtocols();
 		
+		// byte[] bytes = toAvro(
+		//			"kn 1 just testing a sentence with Maya's Monster Inc. Lamp And a very long sentence that makes this message even bigger for testing payload capacity","TELEMETRY");
+
 		 byte[] bytes = toAvro(
-					"kn 1 just testing a sentence with Maya's Monster Inc. Lamp And a very long sentence that makes this message even bigger for testing payload capacity","TELEMETRY");
+					"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}","TELEMETRY");
 
 	        producer.send(bytes);
 	        
-	        //close();
+	        producer.close();
 	}
 	
 	
@@ -60,7 +64,7 @@ public class RESTVolumeTest_with_DataProtocols {
 		
 		try {
 			int i;
-			for ( i = 0; i < 10; i++) {
+			for ( i = 0; i < 1; i++) {
 				// send lots of messages
 				//producer.send(toAvro(String.format("{ \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i),"NOTIFICATION"));
 
@@ -71,8 +75,10 @@ public class RESTVolumeTest_with_DataProtocols {
 			
 				}else 
 					*/
-					byte[] bytes = toAvro(
-							"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}","TELEMETRY");
+					//byte[] bytes = toAvro(
+					//		"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}","TELEMETRY");
+				byte[] bytes = toAvro(
+									"kn 1 just testing a sentence with Maya's Monster Inc. Lamp And a very long sentence that makes this message even bigger for testing payload capacity","REGISTRY_RESPONSE");
 
 				 
 			        producer.send(bytes);
@@ -98,14 +104,29 @@ public class RESTVolumeTest_with_DataProtocols {
 	}
 
 	public static byte[] toAvro(String payload, String type) throws IOException{
-		GenericRecord mesg = new GenericData.Record(schema);		
-		mesg.put("sourceid", "kaniu");
-		mesg.put("payload", payload);
+		Schema schema_remoteReq = new Schema.Parser().parse(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/registry-to-spark/versions/current/remoterequest.avsc").openStream());
+		
+		GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
+		remotemesg.put("path", "/a/light");
+		remotemesg.put("payload","{\"value\":\"true\"}");
+		remotemesg.put("deviceId","RaspiLightUUID-Demo");
+		remotemesg.put("header","hub-request");
+		remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
+		remotemesg.put("verb","POST");
+		
+		/**
+		 *  {"path":"/a/light","verb":"POST","payload":"{\"value\":true}","header":"hub-request","txId":"a37183ac-ba57-4213-a7f3-1c1608ded09e","deviceId":"RaspiLightUUID-Demo"}*
+		 */
+		GenericRecord mesg = new GenericData.Record(schema);	
+		mesg.put("sourceid", "erterg");
+		mesg.put("payload", "");
+		mesg.put("registrypayload", remotemesg);
 		mesg.put("messagetype", type);
-		mesg.put("createdate",  DateFormat.getDateTimeInstance().format(new Date())+"");
+		mesg.put("createdate",  DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.FULL).format(new Date())+"");
 		mesg.put("messageid", UUID.randomUUID()+"");
 		//create avro
-		byte[] avro = AvroUtils.serializeJson(mesg.toString(), schema);
+		
+		byte[] avro = AvroUtils.serializeJava(mesg, schema);
 		
 		System.out.println(Bytes.toString(avro));
 		

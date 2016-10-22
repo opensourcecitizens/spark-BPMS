@@ -2,6 +2,7 @@ package avro;
 
 import java.io.IOException;
 import java.net.URL;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -9,6 +10,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.codehaus.jackson.JsonGenerationException;
@@ -18,16 +21,23 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.neustar.iot.spark.kafka.SecurityAndAvroStandardizationStreamProcess;
+import com.neustar.iot.spark.rules.RulesForwardWorker;
 
 import io.parser.avro.AvroParser;
 import io.parser.avro.AvroUtils;
 
 public class TestEnd2EndAvro {
 	Schema schema = null;
-	String schemaUrl = "https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/0.0.1_20160928/NeustarMessage.avsc";
+	Schema schema_remoteReq = null;
+	//String schemaUrl = "https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/0.0.1_20160928/NeustarMessage.avsc";
 	@Before
 	public void init() throws IOException{
-	 schema = new Schema.Parser().parse(new URL(schemaUrl).openStream());
+	 //schema = new Schema.Parser().parse(new URL(schemaUrl).openStream());
+	 
+	 schema_remoteReq = new Schema.Parser().parse(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/registry-to-spark/versions/current/remoterequest.avsc").openStream());
+		
+	 schema = new Schema.Parser().parse(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/current/NeustarMessage.avsc").openStream());
+
 	}
 	
 	String message = "{\"deviceName\":\"Testing a very large avro message by adding this sentence: Maya's Monster Inc. Lamp Annd a very long sentence that makes this message even bigger for testing payload capacity\"}";
@@ -100,5 +110,34 @@ public class TestEnd2EndAvro {
 		String json = AvroUtils.avroToJson(bytes,  schema);
 		
 		System.out.println(json);
+	}
+	
+	@Test
+	public void testCreateAndSearchMap() throws Exception{
+		GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
+		remotemesg.put("path", "/api/v1/devices");
+		remotemesg.put("payload","{\"value\":\"false\"}");
+		remotemesg.put("deviceId","000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==");
+		remotemesg.put("header","{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
+		remotemesg.put("txId","someTextid");
+		remotemesg.put("verb","update");
+		
+		byte[] payloadavro = AvroUtils.serializeJava(remotemesg, schema_remoteReq);
+		GenericRecord genericPayload = AvroUtils.avroToJava(payloadavro, schema_remoteReq);
+		
+			
+	 	GenericRecord mesg = new GenericData.Record(schema);	
+		mesg.put("sourceid", "device1");
+		mesg.put("registrypayload", genericPayload);
+		mesg.put("payload", "");
+		mesg.put("messagetype", "TELEMETRY");
+		mesg.put("createdate",  DateFormat.getDateInstance().format(new Date())+"");
+		mesg.put("messageid", UUID.randomUUID()+"");
+		
+		byte[] parentpayload = AvroUtils.serializeJava(mesg, schema);
+		
+		AvroParser<Map<String,?>> avroParser = new AvroParser<Map<String,?>>(schema);
+		Map<String,?> map = avroParser.parse(parentpayload, new HashMap<String,Object>());	
+		System.out.println(new RulesForwardWorker().searchMapFirstSubKey("RemoteRequest", map));
 	}
 }

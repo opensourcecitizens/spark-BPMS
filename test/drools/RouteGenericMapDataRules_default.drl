@@ -130,17 +130,18 @@ rule "Send Registry response to MQTT"
 			$mqttMessage : MQTTMessage( )			
 	then
 		System.out.println("****** Send Registry response to MQTT ******");
+		worker = new RulesForwardWorker();
 		Map message = $mqttMessage.getMessage();
 		String mqttBrokerUri = new String("tcp://ec2-52-42-35-89.us-west-2.compute.amazonaws.com:1883");
-		Map regPayloadMap = (Map)message.get("registrypayload");
-		String deviceId = (String)regPayloadMap.get("deviceId");
+		Map regPayloadMap = (Map)worker.searchMapFirstSubKey("RemoteRequest",message);
+		String deviceId = (String)worker.searchMap("deviceId",message);
 		attrMap = new HashMap<String,Object>();
 		attrMap.put("topic", "device/"+deviceId+"/in");
 		attrMap.put("qos", 2);
-		worker = new RulesForwardWorker();	
+		System.out.println("deviceId="+deviceId+"  data = "+regPayloadMap);
 		result = worker.remoteMQTTCall(mqttBrokerUri,"JavaSample", regPayloadMap,  attrMap,  true);
 		message.put("result",result);
-		System.out.println( message);
+		System.out.println(message);
 		System.out.println("Message sent to MQTT returned: " + result);
 		
 		insertLogical( new MQTTResult(message,result,mqttBrokerUri ));

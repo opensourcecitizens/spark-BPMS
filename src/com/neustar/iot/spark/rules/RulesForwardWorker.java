@@ -8,6 +8,7 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.avro.Schema;
@@ -225,6 +226,45 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 
 		return fs.open(new Path(uri));
 
+	}
+	
+	public synchronized Object searchMap(String searchkey, Map<String,?>map){
+	
+		if(map==null||map.isEmpty())return null;
+		
+		Set<String> keyset = map.keySet();
+		Object retObj = null;
+		for(String key : keyset){
+			Object o = map.get(key);
+			if(key.equals(searchkey)){ retObj = o;break;}
+			else if (o instanceof Map){
+				o = searchMap(searchkey,(Map<String,?>)o);
+				if(o!=null){retObj = o;break;}
+			}else{
+				retObj = null;
+			}
+		}
+		return retObj;
+	}
+	
+	public synchronized Object searchMapFirstSubKey(String searchkey, Map<String,?>map){
+		
+		if(map==null||map.isEmpty())return null;
+		
+		Set<String> keyset = map.keySet();
+		Object retObj = null;
+		for(String key : keyset){
+			Object o = map.get(key);
+			//System.out.println(key+" contains "+searchkey+" ?  "+key.contains(searchkey));
+			if(key.contains(searchkey)){ retObj = o;break;}
+			else if (o instanceof Map){
+				o = searchMapFirstSubKey(searchkey,(Map<String,?>)o);
+				if(o!=null){retObj = o;break;}
+			}else{
+				retObj = null;
+			}
+		}
+		return retObj;
 	}
 
 }

@@ -47,7 +47,7 @@ public class RegistryRESTVolumeTest {
 
 		try {
 
-			for (int i = 0; i < 1; i++) {
+			for (int i = 0; i < 5; i++) {
 				// send lots of messages
 				producer.send(toAvro(
 						"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}"
@@ -72,9 +72,9 @@ public class RegistryRESTVolumeTest {
 				"jwt_abc");
 		connection.setRequestProperty("API-KEY",
 				"123");
-		connection.setRequestProperty("Content-Type",MediaType.APPLICATION_FORM_URLENCODED );
-		connection.setConnectTimeout(10000);
-		connection.setReadTimeout(10000);
+		connection.setRequestProperty("Content-Type",MediaType.APPLICATION_OCTET_STREAM);
+		connection.setConnectTimeout(1000);
+		connection.setReadTimeout(1000);
 		return connection;
 	}
 
@@ -136,6 +136,7 @@ public class RegistryRESTVolumeTest {
 			} catch (Exception e) {
 				System.out.println("\nError while calling Crunchify REST Service");
 				e.printStackTrace();
+				//throw e;
 			}
 			return resposneBuilder.toString();
 		}

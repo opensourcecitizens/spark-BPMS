@@ -61,21 +61,21 @@
 		</dependency>
 
 		<dependency>
-			<groupId>io.serialization</groupId>
-			<artifactId>io-serialization</artifactId>
-			<version>1.0.0</version>
+			<groupId>com.neustar.iot.serialization</groupId>
+			<artifactId>iot-serialization</artifactId>
+			<version>1.0.1</version>
 		</dependency>
 
 		<dependency>
-			<groupId>io.rules</groupId>
+			<groupId>com.neustar.io.rules</groupId>
 			<artifactId>io-rules</artifactId>
-			<version>1.0.0</version>
+			<version>1.0.1</version>
 		</dependency>
 		
 		<dependency>
-			<groupId>io.clients</groupId>
+			<groupId>com.neustar.io.clients</groupId>
 			<artifactId>io-clients</artifactId>
-			<version>1.0.0</version>
+			<version>1.0.1</version>
 		</dependency>
 
 		<dependency>

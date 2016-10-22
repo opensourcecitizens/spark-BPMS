@@ -128,6 +128,7 @@ public class TestDroolsAnsForwarders {
 
 			GenericRecord mesg = new GenericData.Record(schema);	
 
+			
 			mesg.put("sourceid", "device1");
 			mesg.put("payload", "{\"relativeHref\":\"/a/light\", \"desiredState\":{\"value\":false}}");
 			mesg.put("messagetype", "REGISTRY_POST");
@@ -181,18 +182,25 @@ public class TestDroolsAnsForwarders {
 			Schema schema_remoteReq = new Schema.Parser().parse(new File("/Users/kndungu/Documents/workspace/iot-serialization/resources/RemoteRequest.avsc"));
 			
 			GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
-			remotemesg.put("path", "/api/v1/devices");
+			/*remotemesg.put("path", "/api/v1/devices");
 			remotemesg.put("payload","{\"value\":\"false\"}");
+			remotemesg.put("deviceId","RaspiLightUUID-Demo");
+			remotemesg.put("header","hub-request");
+			remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
+			remotemesg.put("verb","POST");*/
+			
+		
+			remotemesg.put("path", "/a/light");
+			remotemesg.put("payload","{\"value\":\"true\"}");
 			remotemesg.put("deviceId","RaspiLightUUID-Demo");
 			remotemesg.put("header","hub-request");
 			remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
 			remotemesg.put("verb","POST");
 			
-			
 			byte[] payloadavro = AvroUtils.serializeJava(remotemesg, schema_remoteReq);
 			GenericRecord genericPayload = AvroUtils.avroToJava(payloadavro, schema_remoteReq);
 			mesg.put("registrypayload", genericPayload);
-			mesg.put("payload", null);
+			mesg.put("payload", "{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}");
 			mesg.put("messagetype", "REGISTRY_RESPONSE");
 			mesg.put("createdate",  DateFormat.getDateInstance().format(new Date())+"");
 			mesg.put("messageid", UUID.randomUUID()+"");

@@ -3,9 +3,8 @@ package com.neustar.iot.spark.kafka;
 import scala.Tuple2;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.GenericRecordBuilder;
-import org.apache.commons.io.Charsets;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -19,13 +18,14 @@ import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import com.neustar.iot.spark.AbstractStreamProcess;
 
+import io.client.kafka.KafkaProducerClient;
 import io.parser.avro.AvroUtils;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.sql.SQLException;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
 import java.util.Arrays;
@@ -69,12 +70,15 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 
 	private static String APP_NAME="RegistryPayloadAvroStreamProcess"; 
 
+	@SuppressWarnings("unused")
+	private RegistryPayloadAvroStandardizationStreamProcess(){}
 	
 	public RegistryPayloadAvroStandardizationStreamProcess(String _topics, int _numThreads, String _outTopic) throws IOException {
 		inputTopics=_topics;
 		numThreads=_numThreads;
 		outputTopic=_outTopic;
 
+		producerProperties.setProperty("topic.id", outputTopic);
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
 		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
 		registry_avro_schema_web_url=properties.getProperty("registry.avro.schema.web.url")!=null?new URL(properties.getProperty("registry.avro.schema.web.url")):null;
@@ -143,7 +147,7 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 	    });
 
 	    //System.out.println(lines.count());
-	    lines = lines.repartition(6);
+	    //lines = lines.repartition(6);
 	    
 	    
 	    lines.foreachRDD(new Function<JavaRDD<Map<String,?>>, Void>() {
@@ -171,6 +175,9 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 										Future<RecordMetadata>  res = createAndSendAvroToQueue(msg,props);
 										System.out.println("Wrote to topic:"+res.get().topic()+";  partition:"+res.get().partition());
 										log.info("Wrote to topic:"+res.get().topic()+";  partition:"+res.get().partition());
+										//String res = createAndSendAvroToQueue(msg,props);
+										//System.out.println(res);
+										//log.info(res);
 									}else{
 										//create error message
 										
@@ -181,6 +188,7 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 									//check error and decide if to recycle msg if parser error.
 									log.error(e,e);
 									e.printStackTrace();
+									throw e;
 								}
 									
 							}
@@ -224,23 +232,26 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 		//create generic avro record 
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 
-		GenericRecordBuilder outMap =  new GenericRecordBuilder(schema);
+		GenericRecord outMap = new GenericData.Record(schema);
 		String sourceid = "default";
-		String time = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(new Date());
+		String time = new DateTime ( DateTimeZone.UTC ).toString( );
 		String msgid = UUID.randomUUID()+sourceid;//fromString( sourceid+time ).toString();
 		
-		outMap.set("messageid", msgid);
-		outMap.set("sourceid", sourceid);
-		outMap.set("registrypayload", payload);
-		outMap.set("createdate", time);
-		outMap.set("messagetype", "REGISTRY_RESPONSE");
+		outMap.put("messageid", msgid);
+		outMap.put("sourceid", sourceid);
+		outMap.put("registrypayload", payload);
+		outMap.put("payload", "");
+		outMap.put("createdate", time);
+		outMap.put("messagetype", "REGISTRY_RESPONSE");
 		
 		//create avro
-		byte[] avro = AvroUtils.serializeJava(outMap.build(), schema);
+		byte[] avro = AvroUtils.serializeJava(outMap, schema);
 		KafkaProducer<String, byte[]> producer = new KafkaProducer<String, byte[]>(props);
-		Future<RecordMetadata> response = producer.send(new ProducerRecord<String, byte[]>(outputTopic, avro));
-		
+		Future<RecordMetadata> response = producer.send(new ProducerRecord<String, byte[]>(props.getProperty("topic.id"), avro));
 		return response;
+		//KafkaProducerClient<byte[]> kafka = (KafkaProducerClient<byte[]>) KafkaProducerClient.singleton();
+		//String ret = kafka.send(avro, props.getProperty("topic.id"));
+		//return ret;
 	}
 
 
