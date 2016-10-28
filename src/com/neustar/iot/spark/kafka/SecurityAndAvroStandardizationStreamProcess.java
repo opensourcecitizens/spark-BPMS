@@ -3,7 +3,10 @@ package com.neustar.iot.spark.kafka;
 import scala.Tuple2;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.commons.net.util.Base64;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -73,7 +76,8 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		numThreads=_numThreads;
 		outputTopic=_outTopic;
 		
-/*		InputStream props = SecurityAndAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
+		/*		
+		InputStream props = SecurityAndAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
 		properties = new Properties();
 		properties.load(props);
 
@@ -83,14 +87,15 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		
 		props = SecurityAndAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
 		producerProperties = new Properties();
-		producerProperties.load(props);*/
+		producerProperties.load(props);
+		*/
 
 		producerProperties.setProperty("topic.id", _outTopic);
+		producerProperties.setProperty("currentTopic", inputTopics);
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
 		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
 		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
 		
-
 	}
 
 	public static void main(String[] args) throws IOException {
@@ -165,9 +170,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	      }
 	    });
 
-	    //System.out.println(lines.count());
 	    lines = lines.repartition(6);
-	    
 	    
 	    lines.foreachRDD(new Function<JavaRDD<Map<String,?>>, Void>() {
 
@@ -208,8 +211,6 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 									
 							}
 
-
-
 						}
 
 				);
@@ -223,12 +224,12 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		
 	}
 	
-
-	
-	
 	public synchronized  Map<String,?> parseJsonData(byte[] jsondata) throws Exception{
+		
 		ObjectMapper mapper = new ObjectMapper();
-		return mapper.readValue(jsondata, new TypeReference<Map<String, ?>>(){});
+		Map<String,?> map =  mapper.readValue(jsondata, new TypeReference<Map<String, ?>>(){});
+
+		return map;
 	}
 	
 	/**
@@ -243,24 +244,59 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	}
 	
 
-	protected synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String, ?> msg, Properties props) throws IOException, ExecutionException {
-		
-		//create generic avro record 
-		
+	protected synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String, ?> jsonData, Properties props) throws IOException, ExecutionException {
+
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 
 		GenericRecordBuilder outMap =  new GenericRecordBuilder(schema);
-		String sourceid = (String) msg.get("sourceid");
+		
 		String time = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(new Date());
-		String msgid = UUID.randomUUID()+sourceid;//fromString( sourceid+time ).toString();
-		
-		outMap.set("messageid", msgid);
-		outMap.set("sourceid", sourceid);
-		outMap.set("payload", msg.get("payload"));
 		outMap.set("createdate", time);
-		outMap.set("messagetype", msg.get("messagetype"));
+		String sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));
+		outMap.set("sourceid", sourceid);	
+		String msgid = UUID.randomUUID()+sourceid;
+		outMap.set("messageid", msgid);
 		
+		//Schema schema_remoteReq = retrieveLatestAvroSchema(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/registry-to-spark/versions/current/remoterequest.avsc"));
+		
+		if(props.getProperty("currentTopic").startsWith("device.event")){
+			
+			/*GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
+			remotemesg.put("path", "/api/v1/internal/devices");
+			String encodedPath = new Base64().encodeToString( remotemesg.get("path").toString().getBytes());
+			remotemesg.put("payload","{\"value\":\"false\"}");
+			remotemesg.put("deviceId","000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==");
+			remotemesg.put("header","{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
+			remotemesg.put("txId","someTextid");
+			remotemesg.put("verb","update");
+			outMap.set("registrypayload", remotemesg);
+			*/
+			
+			outMap.set("payload", "{\"id\":\"RaspiLightUUID-Demo/L2EvbGlnaHQ=\", \"data\":\"{\"value\":true, \"brightness\":30}\"}");
+			outMap.set("messagetype", "REGISTRY_PUT");
+			
+		}else if (props.getProperty("currentTopic").startsWith("device.out")){
+			
+			/*GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
+			remotemesg.put("path", "/api/v1/internal/devices/rshadow/243f8d4c-62ec-4be1-af02-a651a7fcdf75");
+			String encodedPath = new Base64().encodeToString( remotemesg.get("path").toString().getBytes());
+			remotemesg.put("payload","{\"status\":\"SUCCESS\"}");
+			remotemesg.put("deviceId","000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==");
+			remotemesg.put("header","{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
+			remotemesg.put("txId","someTextid");
+			remotemesg.put("verb","resolve");
+			outMap.set("registrypayload", remotemesg);
+			*/
+			outMap.set("payload", "{\"status\":\"SUCCESS\"}");
+			outMap.set("messagetype", "REGISTRY_POST");
+			
+		}else{
+			
+			
+			outMap.set("payload", jsonData.get("payload"));
+			outMap.set("messagetype", jsonData.get("messagetype"));
 
+		}
 		//create avro
 		byte[] avro = AvroUtils.serializeJava(outMap.build(), schema);
 		

@@ -63,8 +63,8 @@ public class RegistryRESTVolumeTest {
 	}
 
 	public static URLConnection openConnection() throws IOException {
-		URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/queue/avro/stream/topic/out.topic.registry?userid=default");
-		//URL url = new URL("http://localhost:8988/JsonGatewayWebService/api/queue/avro/stream/topic/out.topic.registry?userid=default");
+		//URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/queue/avro/stream/topic/out.topic.registry?userid=default");
+		URL url = new URL("http://127.0.0.1:8988/JsonGatewayWebService/api/queue/avro/stream/topic/out.topic.registry?userid=default");
 		
 		URLConnection connection = url.openConnection();
 		connection.setDoOutput(true);
@@ -73,8 +73,8 @@ public class RegistryRESTVolumeTest {
 		connection.setRequestProperty("API-KEY",
 				"123");
 		connection.setRequestProperty("Content-Type",MediaType.APPLICATION_OCTET_STREAM);
-		connection.setConnectTimeout(1000);
-		connection.setReadTimeout(1000);
+		connection.setConnectTimeout(10000);
+		connection.setReadTimeout(10000);
 		return connection;
 	}
 

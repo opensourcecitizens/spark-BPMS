@@ -54,8 +54,8 @@ rule "Incoming Registry Post"
         
         attrMap = new HashMap<String,Object>();
 		attrMap.put("path", "/api/v1/devices/54919CA5-4101-4AE4-595B-353C51AA983C/rshadow");
-		attrMap.put("header", "{\"API-KEY\": \"2\",\"Content-Type\": \"application/json\"}");
-			
+		//attrMap.put("header", "{\"API-KEY\": \"2\",\"Content-Type\": \"application/json\"}");
+		attrMap.put("header", "{\"Bearer\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ik1UVTRRVFZEUTBFMFJVSXhSRU5HTWpCR01FRTBPRGMwUTBRMU5VUkVOelV4T1VKRE1UQkZOQSJ9.eyJpc3MiOiJodHRwczovL2JhZ2RpLmF1dGgwLmNvbS8iLCJzdWIiOiJjN0dqTkZaR3pSTzhUZGhDYlZJTkR5dEtPT0dzM1FoVkBjbGllbnRzIiwiYXVkIjoiaHR0cHM6Ly9iYWdkaS5hdXRoMC5jb20vYXBpL3YyLyIsImV4cCI6MTQ3NzQzMTUzNiwiaWF0IjoxNDc3MzQ1MTM2LCJzY29wZSI6InJlYWQ6dXNlcnNfYXBwX21ldGFkYXRhIn0.W7wLd48KPfQLfCV8kWZTrddrppOZOxcIe4AEyz_HU21iQtvtwsSIVIr4dmNDAkOdwu2rnTZ1X-w6_noCvH46qMiY7ZSCob-Tcf-yVFO1YRLdDnYzjNbczDdoyCot-0HX2LHJaIrdrob4bS9UfuVm9L8nP0uFKwTdwPJjBLiUHu4ZbSW0mynlgREjPXvjDtrbNEbaD1YwfglUpByyMumVDqScNyBoh7md9gUToMKo3umUwzPMwINN-zNmaExzbOZytZLlvEjzPxy9db70bs6NaHc0L04JSRo02Pa-jlCua83iujhlkIk5p4Poy4nytxGhNxGH5sdPwUakI6r_wlouhQ\"}");	
         result = worker.remoteRestPost(rest_Uri, $messageMap,  attrMap);
 
         $messageMap.put("endpoint_uri", rest_Uri);
@@ -74,8 +74,9 @@ rule "Incoming Registry Put"
         
         attrMap = new HashMap<String,Object>();
 		attrMap.put("path", "/api/v1/devices/update");
-		attrMap.put("header", "{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
-			
+		//attrMap.put("header", "{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
+		attrMap.put("header", "{\"Bearer\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ik1UVTRRVFZEUTBFMFJVSXhSRU5HTWpCR01FRTBPRGMwUTBRMU5VUkVOelV4T1VKRE1UQkZOQSJ9.eyJpc3MiOiJodHRwczovL2JhZ2RpLmF1dGgwLmNvbS8iLCJzdWIiOiJjN0dqTkZaR3pSTzhUZGhDYlZJTkR5dEtPT0dzM1FoVkBjbGllbnRzIiwiYXVkIjoiaHR0cHM6Ly9iYWdkaS5hdXRoMC5jb20vYXBpL3YyLyIsImV4cCI6MTQ3NzQzMTUzNiwiaWF0IjoxNDc3MzQ1MTM2LCJzY29wZSI6InJlYWQ6dXNlcnNfYXBwX21ldGFkYXRhIn0.W7wLd48KPfQLfCV8kWZTrddrppOZOxcIe4AEyz_HU21iQtvtwsSIVIr4dmNDAkOdwu2rnTZ1X-w6_noCvH46qMiY7ZSCob-Tcf-yVFO1YRLdDnYzjNbczDdoyCot-0HX2LHJaIrdrob4bS9UfuVm9L8nP0uFKwTdwPJjBLiUHu4ZbSW0mynlgREjPXvjDtrbNEbaD1YwfglUpByyMumVDqScNyBoh7md9gUToMKo3umUwzPMwINN-zNmaExzbOZytZLlvEjzPxy9db70bs6NaHc0L04JSRo02Pa-jlCua83iujhlkIk5p4Poy4nytxGhNxGH5sdPwUakI6r_wlouhQ\"}");	
+        	
         result = worker.remoteRestPut(rest_Uri, $messageMap,  attrMap);
 
         $messageMap.put("endpoint_uri", rest_Uri);
@@ -188,6 +189,7 @@ rule "Dashboard Reporting"
     then
     	System.out.println("****** Dashboard Reporting ******");
         worker = new RulesForwardWorker();
+        //System.out.println($dashBoardData);
         rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/"+$dashBoardData.getType());
         String ret = worker.remoteElasticSearchPost(rest_Uri, $dashBoardData.getMessage(),  null);
 

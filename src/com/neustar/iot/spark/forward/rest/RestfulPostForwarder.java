@@ -1,6 +1,7 @@
 package com.neustar.iot.spark.forward.rest;
 
 import java.util.Map;
+import java.util.Set;
 
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriBuilder;
@@ -100,17 +101,22 @@ public class RestfulPostForwarder implements ForwarderIfc{
 		
 	
 		Map<String,?> headerMap = mapper.readValue( attr.get("header").toString(),new TypeReference<Map<String, ?>>(){});
-		String apikey = headerMap.get("API-KEY").toString();
+		Set<String> headerkeys = headerMap.keySet();
+		//String apikey = headerMap.get("API-KEY").toString();
 		//System.out.println(apikey);
 		
-		String contentType = headerMap.get("Content-Type")!=null?headerMap.get("Content-Type").toString():MediaType.APPLICATION_JSON;
+		//String contentType = headerMap.get("Content-Type")!=null?headerMap.get("Content-Type").toString():MediaType.APPLICATION_JSON;
 		//System.out.println(contentType);
 
 		
 		webResource = getWebResource().path(path);
 		Builder builder = webResource.accept(MediaType.APPLICATION_JSON);
-		builder.header("API-KEY", apikey);
-		ClientResponse cliResponse = builder.type(contentType).post(ClientResponse.class, mapper.writeValueAsString(payload));
+		
+		for(String headerkey : headerkeys){
+			builder.header(headerkey, headerMap.get(headerkey));
+		}
+		
+		ClientResponse cliResponse = builder.post(ClientResponse.class, mapper.writeValueAsString(payload));
 		
 		return cliResponse.getEntity(String.class);
 	}

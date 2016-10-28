@@ -85,7 +85,18 @@ public class RestfulGetForwarder implements ForwarderIfc{
 	@Override
 	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attr) throws Throwable {
 
-		return forward(map,schema);
+		String path = (String) map.get("payload");
+		
+		webResource = getWebResource().path(path);
+		Builder builder = webResource.accept(MediaType.APPLICATION_JSON);
+		
+		builder.type(MediaType.APPLICATION_JSON);
+		builder.header("API-KEY", "1");
+		
+		ClientResponse cliResponse = builder.get(ClientResponse.class);
+		System.out.println("Response = "+cliResponse);
+		
+		return cliResponse.getEntity(String.class);
 	}
 	
 	public String getUri() {

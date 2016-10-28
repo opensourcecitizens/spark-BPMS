@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.avro.Schema;
 import org.apache.hadoop.conf.Configuration;
@@ -19,6 +20,9 @@ import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Logger;
 import org.codehaus.jackson.map.ObjectMapper;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.neustar.iot.spark.AbstractStreamProcess;
 import com.neustar.iot.spark.forward.ForwarderIfc;
 import com.neustar.iot.spark.forward.mqtt.MQTTForwarder;
@@ -164,6 +168,41 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			log.error(e,e);
 			return EXCEPTION+e.getMessage();
 		}
+	}
+	
+	public String localCachedRestGet(String rest_Uri, final Map<String, ?> _data,  final Map<String, ?> _attr) throws ExecutionException {
+		
+		Map<String,Object> request = new HashMap<String,Object>();
+		request.put("url", rest_Uri);
+		request.put("data", _data);
+		request.put("attr", _attr);
+		
+		CacheLoader<Map<String,Object>,String> loader = new CacheLoader<Map<String,Object>,String>(){
+			@Override
+			public String load(Map<String,Object> req) throws Exception  {
+				
+				String url = (String) req.get("url");
+				@SuppressWarnings("unchecked")
+				Map<String,?> data = (Map<String,?>) req.get("data");
+				@SuppressWarnings("unchecked")
+				Map<String,?> attr = (Map<String,?>) req.get("attr");
+				
+				ForwarderIfc forwarder = RestfulGetForwarder.instance(url);
+				
+				try{
+					Schema schema = retrieveLatestAvroSchema();
+					String res =  forwarder.forward(data, schema,attr);
+					return res;
+				}catch(Throwable e){
+					throw new Exception(e);
+				}
+				
+			}
+		};
+
+		LoadingCache<Map<String,Object>, String> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+
+		return cache.get(request);	
 	}
 	
 	public String remoteRestPost(String rest_Uri, Map<String, ?> map,  Map<String, ?> attr) {
