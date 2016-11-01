@@ -30,7 +30,6 @@ import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URL;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -62,12 +61,11 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	
 	private int numThreads;
 	private String hdfs_output_dir = null;
-	private String avro_schema_hdfs_location = null;
+	//private String avro_schema_hdfs_location = null;
 	private URL avro_schema_web_url = null;
 	private static String APP_NAME="Json2AvroStreamProcess"; 
+	enum APP_TYPE{ Json2Avro, DeviceJson2Avro , OneIdJson2Avro };
 	
-	//private Properties properties = null;
-	//private Properties producerProperties = null;
 	@SuppressWarnings("unused")
 	private SecurityAndAvroStandardizationStreamProcess(){}
 	
@@ -76,37 +74,26 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		numThreads=_numThreads;
 		outputTopic=_outTopic;
 		
-		/*		
-		InputStream props = SecurityAndAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
-		properties = new Properties();
-		properties.load(props);
-
-		if (properties.getProperty("group.id") == null) {
-			properties.setProperty("group.id", "group-localtest");
-		}
-		
-		props = SecurityAndAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
-		producerProperties = new Properties();
-		producerProperties.load(props);
-		*/
 
 		producerProperties.setProperty("topic.id", _outTopic);
 		producerProperties.setProperty("currentTopic", inputTopics);
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
-		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
+		//avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
 		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
 		
 	}
 
 	public static void main(String[] args) throws IOException {
+		
 		if (args.length < 3) {
 			System.err.println("Usage: "+APP_NAME+" <topics> <numThreads> <outputTopic>");
+			
 			System.exit(1);
 		}
-			
+		APP_NAME = APP_NAME+args[0];	
 		int numThreads = Integer.parseInt(args[1]);
 		
-		new SecurityAndAvroStandardizationStreamProcess(args[0], numThreads, args[2]).run();
+		new SecurityAndAvroStandardizationStreamProcess( args[0], numThreads, args[2] ).run();
 	}
 	
 	
@@ -257,38 +244,22 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		String msgid = UUID.randomUUID()+sourceid;
 		outMap.set("messageid", msgid);
 		
-		//Schema schema_remoteReq = retrieveLatestAvroSchema(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/registry-to-spark/versions/current/remoterequest.avsc"));
+		Schema schema_remoteReq = retrieveLatestAvroSchema(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/registry-to-spark/versions/current/remoterequest.avsc"));
 		
 		if(props.getProperty("currentTopic").startsWith("device.event")){
-			
-			/*GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
-			remotemesg.put("path", "/api/v1/internal/devices");
-			String encodedPath = new Base64().encodeToString( remotemesg.get("path").toString().getBytes());
-			remotemesg.put("payload","{\"value\":\"false\"}");
-			remotemesg.put("deviceId","000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==");
-			remotemesg.put("header","{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
-			remotemesg.put("txId","someTextid");
-			remotemesg.put("verb","update");
-			outMap.set("registrypayload", remotemesg);
-			*/
-			
-			outMap.set("payload", "{\"id\":\"RaspiLightUUID-Demo/L2EvbGlnaHQ=\", \"data\":\"{\"value\":true, \"brightness\":30}\"}");
-			outMap.set("messagetype", "REGISTRY_PUT");
+				
+			byte[] avro = AvroUtils.serializeJava(jsonData, schema_remoteReq);
+			GenericRecord remotemesg = AvroUtils.avroToJava(avro, schema_remoteReq);
+			outMap = this.deviceEvent(outMap, remotemesg);
 			
 		}else if (props.getProperty("currentTopic").startsWith("device.out")){
 			
-			/*GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
-			remotemesg.put("path", "/api/v1/internal/devices/rshadow/243f8d4c-62ec-4be1-af02-a651a7fcdf75");
-			String encodedPath = new Base64().encodeToString( remotemesg.get("path").toString().getBytes());
-			remotemesg.put("payload","{\"status\":\"SUCCESS\"}");
-			remotemesg.put("deviceId","000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==");
-			remotemesg.put("header","{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
-			remotemesg.put("txId","someTextid");
-			remotemesg.put("verb","resolve");
-			outMap.set("registrypayload", remotemesg);
-			*/
-			outMap.set("payload", "{\"status\":\"SUCCESS\"}");
-			outMap.set("messagetype", "REGISTRY_POST");
+			byte[] avro = AvroUtils.serializeJava(jsonData, schema_remoteReq);
+			GenericRecord remotemesg = AvroUtils.avroToJava(avro, schema_remoteReq);
+			
+
+			outMap = this.resolveDeviceState(outMap, remotemesg);
+			
 			
 		}else{
 			
@@ -311,6 +282,35 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		
 		
 		return response;
+	}
+	
+	public GenericRecordBuilder resolveDeviceState(GenericRecordBuilder curRecord,GenericRecord remotemesg){
+		
+		curRecord.set("registrypayload", remotemesg);
+		
+		String payload =  remotemesg.get("payload").toString(); 
+		String txId =  remotemesg.get("txId").toString();
+		
+		curRecord.set("payload", null);
+		
+		curRecord.set("messagetype", "REGISTRY_POST");
+		
+		return curRecord;
+	}
+	
+	public GenericRecordBuilder deviceEvent(GenericRecordBuilder curRecord,GenericRecord remotemesg){
+		
+		curRecord.set("registrypayload", remotemesg);
+		
+		String encodedPath = new Base64().encodeToString( remotemesg.get("path").toString().getBytes());
+		String deviceId =  remotemesg.get("deviceId").toString();
+		String remotePayload =  remotemesg.get("deviceId").toString();
+
+		//curRecord.set("payload", "{\"id\":\""+deviceId+"/"+encodedPath+"\", \"data\":\""+remotePayload+"\"}");
+		curRecord.set("payload", null);
+		curRecord.set("messagetype", "REGISTRY_PUT");
+		
+		return curRecord;
 	}
 
 

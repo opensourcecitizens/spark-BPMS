@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.lang.String;
 import com.neustar.iot.spark.rules.RulesForwardWorker;
+import org.apache.commons.net.util.Base64;
 
 global RulesForwardWorker worker
 global Map<String,Object> attrMap
@@ -11,6 +12,7 @@ global String rest_Uri
 global String jdbc_url
 global String hdfs_url
 global String result
+global String token
 
 dialect "java"
 
@@ -50,12 +52,21 @@ rule "Incoming Registry Post"
     then
     	System.out.println("****** Incoming Registry Post ******");
         worker = new RulesForwardWorker();
-        rest_Uri =  new String("http://54.149.9.196:8080");
+        rest_Uri =  new String("http://54.149.9.196");
+        
+        token = worker.getSecurityToken("tempid");
+        
+        Map regPayloadMap = (Map)worker.searchMapFirstSubKey("RemoteRequest",$messageMap);
+        
+        String txId = (String)worker.searchMap("txId",regPayloadMap);
+        String payload = (String)worker.searchMap("payload",regPayloadMap);
+        String path = "/api/v1/devices/rshadow/"+txId+"/resolve";
         
         attrMap = new HashMap<String,Object>();
-		attrMap.put("path", "/api/v1/devices/54919CA5-4101-4AE4-595B-353C51AA983C/rshadow");
-		//attrMap.put("header", "{\"API-KEY\": \"2\",\"Content-Type\": \"application/json\"}");
-		attrMap.put("header", "{\"Bearer\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ik1UVTRRVFZEUTBFMFJVSXhSRU5HTWpCR01FRTBPRGMwUTBRMU5VUkVOelV4T1VKRE1UQkZOQSJ9.eyJpc3MiOiJodHRwczovL2JhZ2RpLmF1dGgwLmNvbS8iLCJzdWIiOiJjN0dqTkZaR3pSTzhUZGhDYlZJTkR5dEtPT0dzM1FoVkBjbGllbnRzIiwiYXVkIjoiaHR0cHM6Ly9iYWdkaS5hdXRoMC5jb20vYXBpL3YyLyIsImV4cCI6MTQ3NzQzMTUzNiwiaWF0IjoxNDc3MzQ1MTM2LCJzY29wZSI6InJlYWQ6dXNlcnNfYXBwX21ldGFkYXRhIn0.W7wLd48KPfQLfCV8kWZTrddrppOZOxcIe4AEyz_HU21iQtvtwsSIVIr4dmNDAkOdwu2rnTZ1X-w6_noCvH46qMiY7ZSCob-Tcf-yVFO1YRLdDnYzjNbczDdoyCot-0HX2LHJaIrdrob4bS9UfuVm9L8nP0uFKwTdwPJjBLiUHu4ZbSW0mynlgREjPXvjDtrbNEbaD1YwfglUpByyMumVDqScNyBoh7md9gUToMKo3umUwzPMwINN-zNmaExzbOZytZLlvEjzPxy9db70bs6NaHc0L04JSRo02Pa-jlCua83iujhlkIk5p4Poy4nytxGhNxGH5sdPwUakI6r_wlouhQ\"}");	
+		attrMap.put("path", path);
+		attrMap.put("header", "{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer "+token+"\"}");	
+		
+        $messageMap.put("payload", payload);
         result = worker.remoteRestPost(rest_Uri, $messageMap,  attrMap);
 
         $messageMap.put("endpoint_uri", rest_Uri);
@@ -70,15 +81,26 @@ rule "Incoming Registry Put"
     then
     	System.out.println("****** Incoming Registry Put ******");
         worker = new RulesForwardWorker();
-        rest_Uri =  new String("http://54.149.9.196:8080");
+        rest_Uri =  new String("http://54.149.9.196");
+        
+        token = worker.getSecurityToken("tempid");
+        
+        Map regPayloadMap = (Map)worker.searchMapFirstSubKey("RemoteRequest",$messageMap);
+        
+		String deviceId = (String)worker.searchMap("deviceId",regPayloadMap); 
+        String encodedPath = new Base64().encodeToString( ((String)worker.searchMap("path",regPayloadMap)).getBytes());
+        String id = deviceId+"/"+encodedPath;
+        String path = "/api/v1/internal/devices/update";
+        String data = (String)worker.searchMap("payload",regPayloadMap); 
+        String payload = "{ \"id\":\""+id+"\", \"data\":"+data+" }";              
         
         attrMap = new HashMap<String,Object>();
-		attrMap.put("path", "/api/v1/devices/update");
-		//attrMap.put("header", "{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
-		attrMap.put("header", "{\"Bearer\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ik1UVTRRVFZEUTBFMFJVSXhSRU5HTWpCR01FRTBPRGMwUTBRMU5VUkVOelV4T1VKRE1UQkZOQSJ9.eyJpc3MiOiJodHRwczovL2JhZ2RpLmF1dGgwLmNvbS8iLCJzdWIiOiJjN0dqTkZaR3pSTzhUZGhDYlZJTkR5dEtPT0dzM1FoVkBjbGllbnRzIiwiYXVkIjoiaHR0cHM6Ly9iYWdkaS5hdXRoMC5jb20vYXBpL3YyLyIsImV4cCI6MTQ3NzQzMTUzNiwiaWF0IjoxNDc3MzQ1MTM2LCJzY29wZSI6InJlYWQ6dXNlcnNfYXBwX21ldGFkYXRhIn0.W7wLd48KPfQLfCV8kWZTrddrppOZOxcIe4AEyz_HU21iQtvtwsSIVIr4dmNDAkOdwu2rnTZ1X-w6_noCvH46qMiY7ZSCob-Tcf-yVFO1YRLdDnYzjNbczDdoyCot-0HX2LHJaIrdrob4bS9UfuVm9L8nP0uFKwTdwPJjBLiUHu4ZbSW0mynlgREjPXvjDtrbNEbaD1YwfglUpByyMumVDqScNyBoh7md9gUToMKo3umUwzPMwINN-zNmaExzbOZytZLlvEjzPxy9db70bs6NaHc0L04JSRo02Pa-jlCua83iujhlkIk5p4Poy4nytxGhNxGH5sdPwUakI6r_wlouhQ\"}");	
-        	
+		attrMap.put("path", path);
+		attrMap.put("header", "{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer "+token+"\"}");	
+		
+		$messageMap.put("payload", payload);
         result = worker.remoteRestPut(rest_Uri, $messageMap,  attrMap);
-
+        
         $messageMap.put("endpoint_uri", rest_Uri);
         $messageMap.put("result", result);
         

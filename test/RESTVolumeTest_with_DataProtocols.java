@@ -64,7 +64,7 @@ public class RESTVolumeTest_with_DataProtocols {
 		
 		try {
 			int i;
-			for ( i = 0; i < 10; i++) {
+			for ( i = 0; i < 1; i++) {
 				// send lots of messages
 				//producer.send(toAvro(String.format("{ \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i),"NOTIFICATION"));
 
@@ -75,10 +75,11 @@ public class RESTVolumeTest_with_DataProtocols {
 			
 				}else 
 					*/
+					byte[] bytes = toAvro(
+							"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}","REGISTRY_POST");
 					//byte[] bytes = toAvro(
-					//		"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}","TELEMETRY");
-				byte[] bytes = toAvro(
-									"kn 1 just testing a sentence with Maya's Monster Inc. Lamp And a very long sentence that makes this message even bigger for testing payload capacity","NOTIFICATION");
+					//		"kn 1 just testing a sentence with Maya's Monster Inc. 
+					//Lamp And a very long sentence that makes this message even bigger for testing payload capacity","NOTIFICATION");
 
 				 
 			        producer.send(bytes);
@@ -112,17 +113,18 @@ public class RESTVolumeTest_with_DataProtocols {
 		remotemesg.put("deviceId","RaspiLightUUID-Demo");
 		remotemesg.put("header","hub-request");
 		remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
+		remotemesg.put("statusCode",0);
 		remotemesg.put("verb","POST");
 		
 		/**
 		 *  {"path":"/a/light","verb":"POST","payload":"{\"value\":true}","header":"hub-request","txId":"a37183ac-ba57-4213-a7f3-1c1608ded09e","deviceId":"RaspiLightUUID-Demo"}*
 		 */
 		GenericRecord mesg = new GenericData.Record(schema);	
-		mesg.put("sourceid", "kaniu");
-		mesg.put("payload", payload);
-		//mesg.put("registrypayload", remotemesg);
+		mesg.put("sourceid", "default");
+		//mesg.put("payload", payload);
+		mesg.put("registrypayload", remotemesg);
 		mesg.put("messagetype", type);
-		mesg.put("createdate",  DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.FULL).format(new Date())+"");
+		mesg.put("createdate",  DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.FULL).format(new Date()));
 		mesg.put("messageid", UUID.randomUUID()+"");
 		//create avro
 		

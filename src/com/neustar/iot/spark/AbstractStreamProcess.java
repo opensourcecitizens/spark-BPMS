@@ -44,6 +44,7 @@ public abstract class AbstractStreamProcess implements Serializable{
 
 	protected static Properties properties = null;
 	protected static Properties producerProperties = null;
+	
 	static{
 		InputStream props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
 		properties = new Properties();

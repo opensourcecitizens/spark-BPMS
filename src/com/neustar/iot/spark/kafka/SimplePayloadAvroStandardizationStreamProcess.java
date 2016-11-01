@@ -28,7 +28,6 @@ import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URL;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -72,7 +71,8 @@ public final class SimplePayloadAvroStandardizationStreamProcess extends Abstrac
 		numThreads=_numThreads;
 		outputTopic=_outTopic;
 		
-		/*InputStream props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
+		/*
+		InputStream props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
 		properties = new Properties();
 		properties.load(props);
 
@@ -82,7 +82,8 @@ public final class SimplePayloadAvroStandardizationStreamProcess extends Abstrac
 		
 		props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
 		producerProperties = new Properties();
-		producerProperties.load(props);*/
+		producerProperties.load(props);
+		*/
 
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
 		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;

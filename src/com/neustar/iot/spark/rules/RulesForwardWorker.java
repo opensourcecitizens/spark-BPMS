@@ -13,6 +13,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.avro.Schema;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -32,7 +33,8 @@ import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
 import com.neustar.iot.spark.forward.rest.RestfulPostForwarder;
 import com.neustar.iot.spark.forward.rest.RestfulPutForwarder;
 
-/**This class abstracts forwarders from rules engine. 
+/**
+ * This class abstracts forwarders from rules engine. 
  * This class will be instantiated in drools and return string values for reporting.
  * */
 public class RulesForwardWorker extends AbstractStreamProcess implements Serializable {
@@ -115,8 +117,9 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			Schema schema = retrieveLatestAvroSchema();
 			return forwarder.forward(map, schema, attr);
 		} catch (Throwable e) {
-			log.error(e);
-			return EXCEPTION+e.getMessage();
+			log.error(e,e);
+			e.printStackTrace();
+			return EXCEPTION+ExceptionUtils.getStackTrace(e);
 		}
 	}
 	
@@ -170,7 +173,15 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		}
 	}
 	
+	public String getSecurityToken(String userid){
+		return "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ik1UVTRRVFZEUTBFMFJVSXhSRU5HTWpCR01FRTBPRGMwUTBRMU5VUkVOelV4T1VKRE1UQkZOQSJ9.eyJyb2xlIjoiSU5URVJOQUxfU0VSVklDRSIsInByaW1hcnlJZCI6NDkzLCJpc3MiOiJodHRwczovL2JhZ2RpLmF1dGgwLmNvbS8iLCJzdWIiOiJhdXRoMHw1ODEzYjMzY2YxNDEzYmVkMDk1MGU3ZjMiLCJhdWQiOiJHNGtlQU80bzBjbUV4ckw3YUtTSTk3RngzZXdMU3NTSyIsImV4cCI6MjQ3NzY4NjE1NSwiaWF0IjoxNDc3Njg2MTU1fQ.t0ogfhyqLeIzoilgiT2svQGQ5o94nABRvw3RxNVYipFh9U3s9Kb0Wyu6RJvGPMkv9yEc0C43jZ_hkerlaSpjOxymw3tVbMt_a0npJSsMQnPMYHYBqlbcDbBMwXVTwsWY5RThHqpdySmLe6fUOzStawmNh2VpCsqQsr8EKtllurN2RgkYdMNGWzuuoOy_g41U6QkNcfRVcPmuEWIomcMjmzpBLMT_0-M_MrS4yUrUK5NXaJ4QTQrOIlpSaiG4Zvh0qYP4kWDWn2GcgdrtdtPo6HudDAniMDmww4KvumE99f30utvwP9ui98_yT2-gvFdz6QL3VztcaFlaiuP1NZXdUw"; 
+	
+		//in the future, make a localCachedRestGet to a url
+	}
+	
 	public String localCachedRestGet(String rest_Uri, final Map<String, ?> _data,  final Map<String, ?> _attr) throws ExecutionException {
+		
+		
 		
 		Map<String,Object> request = new HashMap<String,Object>();
 		request.put("url", rest_Uri);
@@ -203,6 +214,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		LoadingCache<Map<String,Object>, String> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
 
 		return cache.get(request);	
+	
 	}
 	
 	public String remoteRestPost(String rest_Uri, Map<String, ?> map,  Map<String, ?> attr) {
@@ -214,7 +226,8 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			return forwarder.forward(map, schema, attr);
 		} catch (Throwable e) {
 			log.error(e,e);
-			return EXCEPTION+e.getMessage();
+			e.printStackTrace();
+			return EXCEPTION+ExceptionUtils.getStackTrace(e);
 		}
 	}
 	
@@ -227,7 +240,8 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			return forwarder.forward(map, schema, attr);
 		} catch (Throwable e) {
 			log.error(e,e);
-			return EXCEPTION+e.getMessage();
+			e.printStackTrace();
+			return EXCEPTION+ExceptionUtils.getStackTrace(e);
 		}
 	}
 
@@ -236,7 +250,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			put("default", "drools/RouteGenericMapDataRules_default.drl");
 			put("kaniu", "drools/RouteGenericMapDataRules_kaniu.drl");
 			put("yaima", "drools/RouteGenericMapDataRules_yaima.drl");
-			put("customer1", "drools/RouteGenericMapDataRules_customer1.drl");
+			put("oneid", "drools/RouteGenericMapDataRules_oneid.drl");
 			put("customer2", "drools/RouteGenericMapDataRules-customer2.drl");
 		}
 	};

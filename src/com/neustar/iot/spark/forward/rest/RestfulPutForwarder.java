@@ -1,5 +1,6 @@
 package com.neustar.iot.spark.forward.rest;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -18,6 +19,8 @@ import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.WebResource.Builder;
 import com.sun.jersey.api.client.config.ClientConfig;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
+
+import io.parser.avro.AvroUtils;
 
 
 public class RestfulPutForwarder implements ForwarderIfc{
@@ -79,37 +82,39 @@ public class RestfulPutForwarder implements ForwarderIfc{
 	@Override
 	public String forward(Map<String, ?> map, Schema schema, Map<String, ?> attrMap) throws Throwable {
 
-			String payloadJsonStr = (String) map.get("payload");
-			//System.out.println(payloadJsonStr);
-			
-			ObjectMapper mapper = new ObjectMapper();
-			Map<String,?> payload = 	mapper.readValue(payloadJsonStr, new TypeReference<Map<String, ?>>(){});	
-			
-			Map<String, ?> attr = mapper.readValue(mapper.writeValueAsString(attrMap), new TypeReference<Map<String, ?>>(){});
-			//System.out.println(mapper.writeValueAsString(attrMap));
-			String path = attr.get("path").toString();	
-			//System.out.println(path);
-			
-		
-			Map<String,?> headerMap = mapper.readValue( attr.get("header").toString(),new TypeReference<Map<String, ?>>(){});
-			Set<String> headerkeys = headerMap.keySet();
-			//String apikey = headerMap.get("API-KEY").toString();
-			//System.out.println(apikey);
-			
-			//String contentType = headerMap.get("Content-Type")!=null?headerMap.get("Content-Type").toString():MediaType.APPLICATION_JSON;
-			//System.out.println(contentType);
+		String payloadJsonStr =  (String) (map.get("payload") instanceof Map? ((Map)map.get("payload")).get("string"):map.get("payload"));
 
+		Map<String,?> headerMap = new HashMap<String,Object>();
+		String path = "/";
+		
+		ObjectMapper mapper = new ObjectMapper();
+		if(attrMap!=null){
+		path = attrMap.get("path")!=null?attrMap.get("path").toString():"";	
+		System.out.println(path);
+				
+		
+		if(attrMap.get("header")!=null){
+			headerMap = mapper.readValue( attrMap.get("header").toString(),new TypeReference<Map<String, ?>>(){});
+		}
+		
+		}
+		
+		Set<String> headerkeys = headerMap.keySet();
+		
+		webResource = getWebResource().path(path);
+		Builder builder = webResource.accept(MediaType.APPLICATION_JSON);
+		for(String headerkey : headerkeys){
+			builder.header(headerkey, headerMap.get(headerkey));
+			System.out.println("HEADER "+headerkey+"  :  "+ headerMap.get(headerkey));
+		}
+		
+		//System.out.println(path);
+		//System.out.println(payloadJsonStr);
+		//return "";
+		
+		ClientResponse cliResponse = builder.put(ClientResponse.class, payloadJsonStr);
 			
-			webResource = getWebResource().path(path);
-			Builder builder = webResource.accept(MediaType.APPLICATION_JSON);
-			for(String headerkey : headerkeys){
-				builder.header(headerkey, headerMap.get(headerkey));
-			}
-			
-			ClientResponse cliResponse = builder.put(ClientResponse.class, mapper.writeValueAsString(payload));
-			
-			return cliResponse.getEntity(String.class);
-			//return forward(map,schema);
+		return cliResponse.getEntity(String.class);
 		
 	}
 	
