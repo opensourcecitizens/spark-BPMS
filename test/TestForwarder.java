@@ -46,8 +46,8 @@ public class TestForwarder {
 			GenericRecord mesg = new GenericData.Record(schema);		
 
 			mesg.put("sourceid", "device1");
-			mesg.put("payload", "{'type':'internal json'}");
-			mesg.put("messagetype", "EXCEPTION");
+			mesg.put("payload", "{\"type\":\"internal json\"}");
+			mesg.put("messagetype", "TELEMETRY");
 			mesg.put("createdate",  DateFormat.getDateInstance().format(new Date())+"");
 			mesg.put("messageid", UUID.randomUUID()+"");
 			

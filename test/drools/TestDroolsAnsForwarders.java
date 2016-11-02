@@ -42,15 +42,15 @@ public class TestDroolsAnsForwarders {
 	
 	
 	
-	private String phoenix_zk_JDBC= "jdbc:phoenix:ec2-52-25-103-3.us-west-2.compute.amazonaws.com,ec2-52-36-108-107.us-west-2.compute.amazonaws.com:2181:/hbase-unsecure:hbase";
+	//private String phoenix_zk_JDBC= "jdbc:phoenix:ec2-52-25-103-3.us-west-2.compute.amazonaws.com,ec2-52-36-108-107.us-west-2.compute.amazonaws.com:2181:/hbase-unsecure:hbase";
 	Schema schema = null;
 	@Before
 	public void init() throws IOException{
 
 		try {
-			//schema = new Schema.Parser().parse(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/current/NeustarMessage.avsc").openStream());
+			schema = new Schema.Parser().parse(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/current/NeustarMessage.avsc").openStream());
 			
-			schema = new Schema.Parser().parse(new File("/Users/kndungu/Documents/workspace/iot-serialization/resources/NeustarMessage.avsc"));
+			//schema = new Schema.Parser().parse(new File("/Users/kndungu/Documents/workspace/iot-serialization/resources/NeustarMessage.avsc"));
 			
 			/*
 			ObjectMapper mapper = new ObjectMapper();
@@ -144,6 +144,29 @@ public class TestDroolsAnsForwarders {
 			Map<String,?> map =  parser.parse(avrodata, schema);
 			
 			runRules(map);
+	
+	 }
+	 
+	 @Test public void testPhoenixCallCall() throws Throwable
+	 {
+
+			GenericRecord mesg = new GenericData.Record(schema);	
+
+			
+			mesg.put("sourceid", "oneid");
+			mesg.put("registrypayload", null);
+			mesg.put("payload", "someting from oneid");
+			mesg.put("messagetype", "TELEMETRY");
+			mesg.put("createdate",  DateFormat.getDateInstance().format(new Date())+"");
+			mesg.put("messageid", UUID.randomUUID()+"");			
+			//create avro
+			byte[] avrodata = AvroUtils.serializeJava(mesg, schema);
+			//avro to map
+			AvroParser<Map<String,?>> parser = new AvroParser<Map<String,?>>(schema);
+			
+			Map<String,?> avromap =  parser.parse(avrodata, schema);
+
+			runRules4oneid(avromap);
 	
 	 }
 	 
@@ -342,6 +365,23 @@ public class TestDroolsAnsForwarders {
 	 }
 
 
+	 private void runRules4oneid(Map<String,?>map){
+			StatelessRuleRunner runner = new StatelessRuleRunner();
+			String [] rules =  {"drools/RouteGenericMapDataRules_oneid.drl"};
+			Resource resources [] = new Resource[rules.length];
+			
+			for(int i = 0 ; i < rules.length; i++){
+				Resource resource = KieServices.Factory.get().getResources().newClassPathResource(rules[i]);
+				resources[i]=resource;
+			}
+
+			Object [] facts = {map};
+			Object[] ret = runner.runRules(resources, facts);
+			
+			
+			String s = Arrays.toString(ret);
+			System.out.println(s);
+	 }
 	 
 	 private void runRules(Map<String,?>map){
 			StatelessRuleRunner runner = new StatelessRuleRunner();

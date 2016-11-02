@@ -20,7 +20,6 @@ import com.neustar.iot.spark.AbstractStreamProcess;
 import com.neustar.iot.spark.forward.ForwarderIfc;
 import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
 import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
-import com.neustar.iot.spark.rules.RulesForwardWorker;
 import com.neustar.iot.spark.rules.RulesProxy;
 
 import kafka.serializer.DefaultDecoder;
@@ -28,7 +27,6 @@ import kafka.serializer.StringDecoder;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.sql.SQLException;
@@ -38,7 +36,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
@@ -59,7 +56,6 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	
 	private String phoenix_zk_JDBC = null;
 	private String hdfs_output_dir = null;
-	private String rest_Uri = null;
 	private String avro_schema_hdfs_location = null;
 	private URL avro_schema_web_url = null;
 	//private Properties properties = null;
@@ -68,20 +64,12 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	public BusinessProcessAvroConsumerStreamProcess(String _topics, int _numThreads) throws IOException {
 		topics_str=_topics;
 		numThreads=_numThreads;
-		
-		/*InputStream props = BusinessProcessAvroConsumerStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
-		properties = new Properties();
-		properties.load(props);
-
-		if (properties.getProperty("group.id") == null) {
-			properties.setProperty("group.id", "group-localtest");
-		}*/
-		
+				
 		phoenix_zk_JDBC = properties.getProperty("phoenix.zk.jdbc");
 		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
 		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
 		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
-		rest_Uri = properties.getProperty("rest.Uri");
+
 	}
 
 	public static void main(String[] args) throws IOException {
@@ -147,7 +135,6 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 				}
 				System.out.print("]");	System.out.println("");	
 				
-				//appendToHDFS(hdfs_output_dir + "/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2);
 				appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+ "/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2+"\n");
 				//parse - 
 				Map<String, Object> data = null;

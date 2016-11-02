@@ -1,0 +1,69 @@
+package drools
+ 
+import java.util.Map;
+import java.lang.String;
+import com.neustar.iot.spark.rules.RulesForwardWorker;
+
+
+/* Rule template for individual customization:
+ * This rule checks for message type in order to route
+ * Routing may include more than one destination ie db, rest 
+ * oneid preferences: 
+ * email: oneid@email.com
+ * sms: 415-400-5555
+ * "REGISTRY_PUT", "REGISTRY_POST", "NOTIFICATION" , "TELEMETRY", "EXCEPTION" 
+ */
+
+global RulesForwardWorker worker 
+global String rest_Uri
+global String jdbc_url
+global String hdfs_url 
+
+dialect "java"
+
+declare DashBoardData
+    message : Map
+    type: String
+end
+
+declare PersistData
+    message : Map
+    type: String
+end
+
+rule "Incoming Message"
+    when
+        $messageMap : Map( this["messagetype"] == "TELEMETRY" )             
+    then
+    	System.out.println("****** Incoming Oneid message ******");        
+        insertLogical( new DashBoardData( $messageMap,"oneid" ) );
+        insertLogical( new PersistData( $messageMap,"oneid" ) );
+end
+
+rule "Data Persist in HBase Phoenix"
+    when
+        $persistData : PersistData()             
+    then
+    	System.out.println("****** Persist to pheonix db ******");
+        
+    	Map message = $persistData.getMessage();
+    	worker = new RulesForwardWorker();
+    	jdbc_url = new String("jdbc:phoenix:ec2-52-42-219-53.us-west-2.compute.amazonaws.com,ec2-54-148-112-235.us-west-2.compute.amazonaws.com:2181:/hbase-unsecure:hbase");
+    	String ret = worker.writeToDB(jdbc_url,"ONEID_TABLE", message,  null);
+        System.out.println("Message sent to HBase returned : " + ret );
+        message.put("result", ret);
+        
+        insertLogical( new DashBoardData( message,$persistData.getType() ) );
+end
+
+rule "Dashboard Reporting"
+    when
+         $dashBoardData : DashBoardData()
+    then
+    	System.out.println("****** Dashboard Reporting ******");
+        worker = new RulesForwardWorker();
+        rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/"+$dashBoardData.getType());
+        String ret = worker.remoteElasticSearchPost(rest_Uri, $dashBoardData.getMessage(),  null);
+
+        System.out.println("Message sent to ElasticSearch returned : " + ret );
+end

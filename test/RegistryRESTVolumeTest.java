@@ -47,7 +47,7 @@ public class RegistryRESTVolumeTest {
 
 		try {
 
-			for (int i = 0; i < 5; i++) {
+			for (int i = 0; i < 1; i++) {
 				// send lots of messages
 				producer.send(toAvro(
 						"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}"
@@ -63,8 +63,8 @@ public class RegistryRESTVolumeTest {
 	}
 
 	public static URLConnection openConnection() throws IOException {
-		//URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/queue/avro/stream/topic/out.topic.registry?userid=default");
-		URL url = new URL("http://127.0.0.1:8988/JsonGatewayWebService/api/queue/avro/stream/topic/out.topic.registry?userid=default");
+		URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/queue/avro/stream/topic/out.topic.registry?userid=default");
+		//URL url = new URL("http://127.0.0.1:8988/JsonGatewayWebService/api/queue/avro/stream/topic/out.topic.registry?userid=default");
 		
 		URLConnection connection = url.openConnection();
 		connection.setDoOutput(true);
@@ -90,7 +90,7 @@ public class RegistryRESTVolumeTest {
 		mesg.put("path", "/a/light");
 		mesg.put("verb", "dosomething");
 		mesg.put("header", "hub-request");
-		//mesg.put("statusCode", "active");
+		mesg.put("statusCode",0);
 		//create avro
 		byte[] avro = AvroUtils.serializeJava(mesg, schema);
 		

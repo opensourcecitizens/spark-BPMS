@@ -13,6 +13,7 @@ import org.apache.avro.Schema;
 
 import org.apache.log4j.Logger;
 import org.apache.phoenix.jdbc.PhoenixDriver;
+import org.codehaus.jackson.map.ObjectMapper;
 
 import com.neustar.iot.spark.forward.ForwarderIfc;
 
@@ -91,6 +92,8 @@ public class PhoenixForwarder implements ForwarderIfc {
 
 	@Override
 	public synchronized String forward(Map<String, ?> map, Schema schema) throws Throwable {
+		ObjectMapper jsonmapper = new ObjectMapper();
+		String rawjson = jsonmapper.writeValueAsString(map);
 		Set<String> keyset = map.keySet();
 		int datasize = keyset.size();
 		
@@ -99,14 +102,15 @@ public class PhoenixForwarder implements ForwarderIfc {
 			qm[i]='?';
 		}
 		
-		prepStmt = getConn().prepareStatement("UPSERT INTO "+tablename+" ( "+Arrays.toString(keyset.toArray()).replace("[", "").replace("]", "")+",CREATED_TIME) "
-				+ "VALUES("+Arrays.toString(qm).replace("[", "").replace("]", "")+", ? )");
+		prepStmt = getConn().prepareStatement("UPSERT INTO "+tablename+" ( "+Arrays.toString(keyset.toArray()).replace("[", "").replace("]", "")+",CREATED_TIME, RAW_JSON) "
+				+ "VALUES("+Arrays.toString(qm).replace("[", "").replace("]", "")+", ? ,?)");
 		
 		AvroToPhoenixMap sqlMapping = new AvroToPhoenixMap();
 		
 		sqlMapping.translate(prepStmt, map, schema);
 		
 		prepStmt.setTime(datasize+1, new Time(System.currentTimeMillis()));
+		prepStmt.setString(datasize+2, rawjson);
 		log.debug("SQL = "+prepStmt.toString());
 		int res = prepStmt.executeUpdate();
 		log.debug("Execute update result = "+res);

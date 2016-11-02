@@ -23,6 +23,7 @@ import org.apache.log4j.Logger;
 import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -219,6 +220,14 @@ public abstract class AbstractStreamProcess implements Serializable{
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url );
 		AvroParser<String> avroParser = new AvroParser<String>(schema);
 		return avroParser.parse(avrodata, new String());		
+	}
+	
+	public synchronized  Map<String,?> parseJsonData(byte[] jsondata) throws Exception{
+		
+		ObjectMapper mapper = new ObjectMapper();
+		Map<String,?> map =  mapper.readValue(jsondata, new TypeReference<Map<String, ?>>(){});
+
+		return map;
 	}
 	
 	public GenericRecord createGenericRecord(Map<String,?> map, Schema schema) throws JsonGenerationException, JsonMappingException, IOException{

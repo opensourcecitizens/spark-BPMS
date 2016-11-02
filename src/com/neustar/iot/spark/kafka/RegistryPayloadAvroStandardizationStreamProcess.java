@@ -25,16 +25,12 @@ import org.joda.time.DateTimeZone;
 
 import com.neustar.iot.spark.AbstractStreamProcess;
 
-import io.client.kafka.KafkaProducerClient;
 import io.parser.avro.AvroUtils;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URL;
-import java.sql.SQLException;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
 import java.util.Arrays;
@@ -246,6 +242,7 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 		
 		//create avro
 		byte[] avro = AvroUtils.serializeJava(outMap, schema);
+		@SuppressWarnings("resource")
 		KafkaProducer<String, byte[]> producer = new KafkaProducer<String, byte[]>(props);
 		Future<RecordMetadata> response = producer.send(new ProducerRecord<String, byte[]>(props.getProperty("topic.id"), avro));
 		return response;
