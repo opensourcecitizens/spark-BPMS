@@ -28,7 +28,6 @@ import org.codehaus.jackson.type.TypeReference;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.neustar.iot.spark.kafka.BusinessProcessAvroConsumerStreamProcess;
 import com.neustar.iot.spark.kafka.SimplePayloadAvroStandardizationStreamProcess;
 import com.neustar.iot.spark.rules.RulesForwardWorker;
 
@@ -223,11 +222,16 @@ public abstract class AbstractStreamProcess implements Serializable{
 	}
 	
 	public synchronized  Map<String,?> parseJsonData(byte[] jsondata) throws Exception{
-		
 		ObjectMapper mapper = new ObjectMapper();
 		Map<String,?> map =  mapper.readValue(jsondata, new TypeReference<Map<String, ?>>(){});
 
 		return map;
+	}
+	
+	public synchronized  String objectToJson(Object o) throws Exception{
+		ObjectMapper mapper = new ObjectMapper();
+		return mapper.writeValueAsString(o);
+
 	}
 	
 	public GenericRecord createGenericRecord(Map<String,?> map, Schema schema) throws JsonGenerationException, JsonMappingException, IOException{

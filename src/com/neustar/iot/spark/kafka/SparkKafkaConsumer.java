@@ -23,9 +23,9 @@ import org.apache.spark.streaming.kafka.KafkaUtils;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.neustar.iot.spark.forward.ForwarderIfc;
-import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
-import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
+import com.neustar.io.net.forward.ForwarderIfc;
+import com.neustar.io.net.forward.phoenix.PhoenixForwarder;
+import com.neustar.io.net.forward.rest.RestfulGetForwarder;
 import com.neustar.iot.spark.rules.RulesProxy;
 
 import io.parser.avro.AvroParser;

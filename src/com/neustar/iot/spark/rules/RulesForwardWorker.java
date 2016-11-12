@@ -25,13 +25,13 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.neustar.iot.spark.AbstractStreamProcess;
-import com.neustar.iot.spark.forward.ForwarderIfc;
-import com.neustar.iot.spark.forward.mqtt.MQTTForwarder;
-import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
-import com.neustar.iot.spark.forward.rest.ElasticSearchPostForwarder;
-import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
-import com.neustar.iot.spark.forward.rest.RestfulPostForwarder;
-import com.neustar.iot.spark.forward.rest.RestfulPutForwarder;
+import com.neustar.io.net.forward.ForwarderIfc;
+import com.neustar.io.net.forward.mqtt.MQTTForwarder;
+import com.neustar.io.net.forward.phoenix.PhoenixForwarder;
+import com.neustar.io.net.forward.rest.ElasticSearchPostForwarder;
+import com.neustar.io.net.forward.rest.RestfulGetForwarder;
+import com.neustar.io.net.forward.rest.RestfulPostForwarder;
+import com.neustar.io.net.forward.rest.RestfulPutForwarder;
 
 /**
  * This class abstracts forwarders from rules engine. 
@@ -174,8 +174,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 	}
 	
 	public String getSecurityToken(String userid){
-		return "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ik1UVTRRVFZEUTBFMFJVSXhSRU5HTWpCR01FRTBPRGMwUTBRMU5VUkVOelV4T1VKRE1UQkZOQSJ9.eyJyb2xlIjoiSU5URVJOQUxfU0VSVklDRSIsInByaW1hcnlJZCI6NDkzLCJpc3MiOiJodHRwczovL2JhZ2RpLmF1dGgwLmNvbS8iLCJzdWIiOiJhdXRoMHw1ODEzYjMzY2YxNDEzYmVkMDk1MGU3ZjMiLCJhdWQiOiJHNGtlQU80bzBjbUV4ckw3YUtTSTk3RngzZXdMU3NTSyIsImV4cCI6MjQ3NzY4NjE1NSwiaWF0IjoxNDc3Njg2MTU1fQ.t0ogfhyqLeIzoilgiT2svQGQ5o94nABRvw3RxNVYipFh9U3s9Kb0Wyu6RJvGPMkv9yEc0C43jZ_hkerlaSpjOxymw3tVbMt_a0npJSsMQnPMYHYBqlbcDbBMwXVTwsWY5RThHqpdySmLe6fUOzStawmNh2VpCsqQsr8EKtllurN2RgkYdMNGWzuuoOy_g41U6QkNcfRVcPmuEWIomcMjmzpBLMT_0-M_MrS4yUrUK5NXaJ4QTQrOIlpSaiG4Zvh0qYP4kWDWn2GcgdrtdtPo6HudDAniMDmww4KvumE99f30utvwP9ui98_yT2-gvFdz6QL3VztcaFlaiuP1NZXdUw"; 
-	
+		return "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ik1UVTRRVFZEUTBFMFJVSXhSRU5HTWpCR01FRTBPRGMwUTBRMU5VUkVOelV4T1VKRE1UQkZOQSJ9.eyJyb2xlIjoiSU5URVJOQUxfU0VSVklDRV9ST0xFIiwicHJpbWFyeUlkIjozMzEsImlzcyI6Imh0dHBzOi8vYmFnZGkuYXV0aDAuY29tLyIsInN1YiI6ImF1dGgwfDU4MWJiMTBiMmVlZTk4NmYwNTAwMDQzYiIsImF1ZCI6ImM3R2pORlpHelJPOFRkaENiVklORHl0S09PR3MzUWhWIiwiZXhwIjoyNDc4MjEwMDIyLCJpYXQiOjE0NzgyMTAwMjJ9.DhUwo7nnXDlffq2kv15BoalZHCUuPuzMXGOrXaqvs3Um2EPxRMr2xIDUN4VQlUvWzUvGlh3G4hw-5q18fCqLGWt4FPHNj5JzWYnNubO68eiTKVnjIa0s0Z9aW7-yYXl28xdaM7X1h_6JeR2Skr_-TGmPVQOSQGzXLXUJbG_tWfNrx0sGmE7CWShHw6wPqUjmp-wJCoid45gqlyEKi_X3HU9nQPM7yWWP8wdz2ruQVlXsvay8dV_0bqRqZY-4G_vL4a2a7683o-VQfV0AEjiI0ToXu345Pzqxlkb6mkKBzb3f8zQHI3aLbsd7WAoBiJfJupsFC2VY18oXLgTfHG9H0Q";
 		//in the future, make a localCachedRestGet to a url
 	}
 	
@@ -199,6 +198,45 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 				Map<String,?> attr = (Map<String,?>) req.get("attr");
 				
 				ForwarderIfc forwarder = RestfulGetForwarder.instance(url);
+				
+				try{
+					Schema schema = retrieveLatestAvroSchema();
+					String res =  forwarder.forward(data, schema,attr);
+					return res;
+				}catch(Throwable e){
+					throw new Exception(e);
+				}
+				
+			}
+		};
+
+		LoadingCache<Map<String,Object>, String> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+
+		return cache.get(request);	
+	
+	}
+	
+	
+	public String localCachedRestPost(String rest_Uri, final Map<String, ?> _data,  final Map<String, ?> _attr) throws ExecutionException {
+		
+		
+		
+		Map<String,Object> request = new HashMap<String,Object>();
+		request.put("url", rest_Uri);
+		request.put("data", _data);
+		request.put("attr", _attr);
+		
+		CacheLoader<Map<String,Object>,String> loader = new CacheLoader<Map<String,Object>,String>(){
+			@Override
+			public String load(Map<String,Object> req) throws Exception  {
+				
+				String url = (String) req.get("url");
+				@SuppressWarnings("unchecked")
+				Map<String,?> data = (Map<String,?>) req.get("data");
+				@SuppressWarnings("unchecked")
+				Map<String,?> attr = (Map<String,?>) req.get("attr");
+				
+				ForwarderIfc forwarder = RestfulPostForwarder.instance(url);
 				
 				try{
 					Schema schema = retrieveLatestAvroSchema();
@@ -279,6 +317,17 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 
 		return fs.open(new Path(uri));
 
+	}
+	
+	public Object searchJson(String searchKey, String jsonStr){
+		Map<String, ?> map;
+		try {
+			map = super.parseJsonData(jsonStr.getBytes());
+		} catch (Exception e) {
+			log.error(e,e);
+			return "Error retrieving key: '"+searchKey+"' in '"+jsonStr+"' ; cause by : "+e.getMessage();
+		}
+		return searchMap(searchKey, map);
 	}
 	
 	public synchronized Object searchMap(String searchkey, Map<String,?>map){

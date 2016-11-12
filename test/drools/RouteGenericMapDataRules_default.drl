@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.lang.String;
 import com.neustar.iot.spark.rules.RulesForwardWorker;
-import org.apache.commons.net.util.Base64;
+import javax.xml.bind.DatatypeConverter;
 
 global RulesForwardWorker worker
 global Map<String,Object> attrMap
@@ -45,6 +45,22 @@ declare DashBoardData
     type: String
 end
 
+/*import  drools.GetToken.token;
+
+function String getToken(Map payloadmap){
+		RulesForwardWorker worker = new RulesForwardWorker();
+		
+        Map attrMap = new HashMap<String,Object>();
+		attrMap.put("path", "/api/v1/login");
+		attrMap.put("header", "{\"Content-Type\": \"application/json\"}");	
+		payloadmap.put("payload", "{\"email\":\"batsalenkab+is@gmail.com\", \"password\":\"password\"}");
+        String tokenjson = worker.localCachedRestPost("http://54.149.9.196", payloadmap,  attrMap);
+        token = worker.searchJson("jwt",tokenjson).toString();
+        
+        return token;
+}
+*/
+
 
 rule "Incoming Registry Post"
     when
@@ -52,15 +68,21 @@ rule "Incoming Registry Post"
     then
     	System.out.println("****** Incoming Registry Post ******");
         worker = new RulesForwardWorker();
+        attrMap = new HashMap<String,Object>();
+		attrMap.put("path", "/api/v1/login");
+		attrMap.put("header", "{\"Content-Type\": \"application/json\"}");	
+		$messageMap.put("payload", "{\"email\":\"batsalenkab+is@gmail.com\", \"password\":\"password\"}");
+        String tokenjson = worker.localCachedRestPost("http://54.149.9.196", $messageMap,  attrMap);
+        token = worker.searchJson("jwt",tokenjson).toString();
+        //token = eval(getToken($messageMap));
+             
         rest_Uri =  new String("http://54.149.9.196");
-        
-        token = worker.getSecurityToken("tempid");
         
         Map regPayloadMap = (Map)worker.searchMapFirstSubKey("RemoteRequest",$messageMap);
         
         String txId = (String)worker.searchMap("txId",regPayloadMap);
         String payload = (String)worker.searchMap("payload",regPayloadMap);
-        String path = "/api/v1/devices/rshadow/"+txId+"/resolve";
+        String path = "/api/v1/internal/devices/rshadow/"+txId+"/resolve";
         
         attrMap = new HashMap<String,Object>();
 		attrMap.put("path", path);
@@ -70,6 +92,7 @@ rule "Incoming Registry Post"
         result = worker.remoteRestPost(rest_Uri, $messageMap,  attrMap);
 
         $messageMap.put("endpoint_uri", rest_Uri);
+        $messageMap.put("endpoint_attr", attrMap);
         $messageMap.put("result", result);
 		 
 		insertLogical( new DashBoardData( $messageMap,"registry" ) );
@@ -81,15 +104,22 @@ rule "Incoming Registry Put"
     then
     	System.out.println("****** Incoming Registry Put ******");
         worker = new RulesForwardWorker();
-        rest_Uri =  new String("http://54.149.9.196");
         
-        token = worker.getSecurityToken("tempid");
+        attrMap = new HashMap<String,Object>();
+		attrMap.put("path", "/api/v1/login");
+		attrMap.put("header", "{\"Content-Type\": \"application/json\"}");	
+		$messageMap.put("payload", "{\"email\":\"batsalenkab+is@gmail.com\", \"password\":\"password\"}");
+        String tokenjson = worker.localCachedRestPost("http://54.149.9.196", $messageMap,  attrMap);
+        token = worker.searchJson("jwt",tokenjson).toString();
+        
+        rest_Uri =  new String("http://54.149.9.196");
         
         Map regPayloadMap = (Map)worker.searchMapFirstSubKey("RemoteRequest",$messageMap);
         
 		String deviceId = (String)worker.searchMap("deviceId",regPayloadMap); 
-        String encodedPath = new Base64().encodeToString( ((String)worker.searchMap("path",regPayloadMap)).getBytes());
+        String encodedPath = DatatypeConverter.printBase64Binary( ((String)worker.searchMap("path",regPayloadMap)).getBytes() );
         String id = deviceId+"/"+encodedPath;
+        System.out.println("id="+id+" , deviceid ="+deviceId);
         String path = "/api/v1/internal/devices/update";
         String data = (String)worker.searchMap("payload",regPayloadMap); 
         String payload = "{ \"id\":\""+id+"\", \"data\":"+data+" }";              
@@ -102,6 +132,7 @@ rule "Incoming Registry Put"
         result = worker.remoteRestPut(rest_Uri, $messageMap,  attrMap);
         
         $messageMap.put("endpoint_uri", rest_Uri);
+        $messageMap.put("endpoint_attr", attrMap);
         $messageMap.put("result", result);
         
        	insertLogical( new DashBoardData( $messageMap,"registry") );
@@ -168,15 +199,6 @@ rule "Send Registry response to MQTT"
 		System.out.println("Message sent to MQTT returned: " + result);
 		
 		insertLogical( new MQTTResult(message,result,mqttBrokerUri ));
-				
-		//attrMap = new HashMap<String,Object>();
-		//attrMap.put("topic", "device/"+deviceId+"/out");
-		//attrMap.put("qos", 2);
-		//result = worker.subscribeToMQTT(mqttBrokerUri,"JavaSample", attrMap,10000);
-		//message.put("result",result);
-		//System.out.println( message);
-		//System.out.println("Message sent to MQTT returned: " + message.get("result") );			
-		//insertLogical( new MQTTResult(message,result,mqttBrokerUri ));
 end	
 
 rule "Process MQTT Error Response"
@@ -197,11 +219,6 @@ rule "Process MQTT Successful Response"
 	then
 		System.out.println("****** Process MQTT Successful Response ******");
 		Map message = $mqttResult.getMessage();
-		//message.put("messagetype","REGISTRY_POST");
-		//message.put("payload",$mqttResult.getResult());
-		//System.out.println($mqttResult.getResult());
-		//System.out.println(message);
-		//insertLogical(  message );
 		insertLogical( new DashBoardData(message,new String("success") ));
 end	
 
@@ -211,7 +228,6 @@ rule "Dashboard Reporting"
     then
     	System.out.println("****** Dashboard Reporting ******");
         worker = new RulesForwardWorker();
-        //System.out.println($dashBoardData);
         rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/"+$dashBoardData.getType());
         String ret = worker.remoteElasticSearchPost(rest_Uri, $dashBoardData.getMessage(),  null);
 

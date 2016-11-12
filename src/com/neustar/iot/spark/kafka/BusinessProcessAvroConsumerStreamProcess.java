@@ -17,9 +17,9 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 
 import com.neustar.iot.spark.AbstractStreamProcess;
-import com.neustar.iot.spark.forward.ForwarderIfc;
-import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
-import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
+import com.neustar.io.net.forward.ForwarderIfc;
+import com.neustar.io.net.forward.phoenix.PhoenixForwarder;
+import com.neustar.io.net.forward.rest.RestfulGetForwarder;
 import com.neustar.iot.spark.rules.RulesProxy;
 
 import kafka.serializer.DefaultDecoder;

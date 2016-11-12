@@ -1,18 +1,15 @@
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.net.URLConnection;
-import java.text.DateFormat;
-import java.util.Date;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import javax.ws.rs.core.MediaType;
 
@@ -23,7 +20,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import io.parser.avro.AvroUtils;
 
-public class RegistryRESTVolumeTest {
+public class OneIdRESTVolumeTest {
 	
 	ExecutorService executor = null;
 	{
@@ -39,29 +36,30 @@ public class RegistryRESTVolumeTest {
 			e.printStackTrace();
 		}
 	}
-	public static void main(String args[]) {
+	public static void main(String args[]) throws InterruptedException {
 
-		RegistryRESTVolumeTest producer = new RegistryRESTVolumeTest();
+		OneIdRESTVolumeTest producer = new OneIdRESTVolumeTest();
 
 		try {
 
 			for (int i = 0; i < 1; i++) {
 				// send lots of messages
-				producer.send(toAvro(
-						"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}"
-						));
+				producer.send("{\"owner\":\"oneid\", \"test\":\"Testing the format of this internal json\"}");
 			}
 			
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
-
+			System.out.println(producer.executor.awaitTermination(10, TimeUnit.SECONDS));
+			producer.executor.shutdown();
 		}
+		
+		
 
 	}
 
 	public static URLConnection openConnection() throws IOException {
-		URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/queue/avro/stream/topic/out.topic.registry?userid=default");
+		URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/api/queue/json/stream/topic/in.topic.oneid?userid=oneid");
 		//URL url = new URL("http://127.0.0.1:8988/JsonGatewayWebService/api/queue/avro/stream/topic/out.topic.registry?userid=default");
 		
 		URLConnection connection = url.openConnection();
@@ -70,14 +68,14 @@ public class RegistryRESTVolumeTest {
 				"jwt_abc");
 		connection.setRequestProperty("API-KEY",
 				"123");
-		connection.setRequestProperty("Content-Type",MediaType.APPLICATION_OCTET_STREAM);
+		connection.setRequestProperty("Content-Type",MediaType.APPLICATION_JSON);
 		connection.setConnectTimeout(10000);
 		connection.setReadTimeout(10000);
 		return connection;
 	}
 
-	public void send(byte[] message) {
-		executor.submit(new Sender(message));
+	public Future<String> send(String message) {
+		return executor.submit(new Sender(message));
 	}
 	
 	public static byte[] toAvro(String payload) throws IOException{
@@ -101,9 +99,9 @@ public class RegistryRESTVolumeTest {
 	}
 
 	class Sender implements Callable<String> {
-		byte[] message = null;
+		String message = null;
 
-		public Sender(byte[] _message) {
+		public Sender(String _message) {
 			message = _message;
 		}
 
@@ -111,16 +109,19 @@ public class RegistryRESTVolumeTest {
 		public String call() throws Exception {
 			StringBuilder resposneBuilder = new StringBuilder();
 			try {
-				URLConnection connection = RegistryRESTVolumeTest.openConnection();
+				URLConnection connection = OneIdRESTVolumeTest.openConnection();
+				
+				OutputStreamWriter out = new OutputStreamWriter(connection.getOutputStream());
 
-				OutputStream  out = connection.getOutputStream();
 				
 				try{
 					out.write(message);
 					}finally{
 					out.close();
 					}
-					BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+				
+				BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+
 
 					String response = null;
 					try{

@@ -62,7 +62,7 @@ rule "Dashboard Reporting"
     then
     	System.out.println("****** Dashboard Reporting ******");
         worker = new RulesForwardWorker();
-        rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/ioteventindex/"+$dashBoardData.getType());
+        rest_Uri  =  new String("https://search-iotaselasticsearch-qtpuykpxgabuzfidzncsfyp7k4.us-west-2.es.amazonaws.com/oneideventindex/"+$dashBoardData.getType());
         String ret = worker.remoteElasticSearchPost(rest_Uri, $dashBoardData.getMessage(),  null);
 
         System.out.println("Message sent to ElasticSearch returned : " + ret );

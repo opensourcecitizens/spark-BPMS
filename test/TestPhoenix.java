@@ -7,7 +7,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
+import com.neustar.io.net.forward.phoenix.PhoenixForwarder;
 
 import io.parser.avro.AvroParser;
 import io.parser.avro.AvroUtils;

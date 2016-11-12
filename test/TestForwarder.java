@@ -12,12 +12,12 @@ import org.apache.avro.generic.GenericRecord;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.neustar.iot.spark.forward.ForwarderIfc;
-import com.neustar.iot.spark.forward.phoenix.PhoenixForwarder;
-import com.neustar.iot.spark.forward.rest.ElasticSearchPostForwarder;
-import com.neustar.iot.spark.forward.rest.RestfulGetForwarder;
-import com.neustar.iot.spark.forward.rest.RestfulPostForwarder;
-import com.neustar.iot.spark.forward.rest.RestfulPutForwarder;
+import com.neustar.io.net.forward.ForwarderIfc;
+import com.neustar.io.net.forward.phoenix.PhoenixForwarder;
+import com.neustar.io.net.forward.rest.ElasticSearchPostForwarder;
+import com.neustar.io.net.forward.rest.RestfulGetForwarder;
+import com.neustar.io.net.forward.rest.RestfulPostForwarder;
+import com.neustar.io.net.forward.rest.RestfulPutForwarder;
 
 import io.parser.avro.AvroParser;
 import io.parser.avro.AvroUtils;

@@ -74,8 +74,8 @@
 		
 		<dependency>
 			<groupId>com.neustar.io.clients</groupId>
-			<artifactId>io-clients</artifactId>
-			<version>1.0.1</version>
+			<artifactId>io-net-clients</artifactId>
+			<version>1.0.0</version>
 		</dependency>
 
 		<dependency>

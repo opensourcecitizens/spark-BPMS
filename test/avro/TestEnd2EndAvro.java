@@ -8,6 +8,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -54,7 +55,8 @@ public class TestEnd2EndAvro {
 		//message sent over to kafka
 		
 		//security spark process : message recieved from  kafka in 
-		Map<String,?> jsonMap = new SecurityAndAvroStandardizationStreamProcess(null,1,null).parseJsonData(jsondata.getBytes());
+		Map<String,?> jsonMap = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"").parseJsonData(jsondata.getBytes());
+
 			//extract payload etc and create avro message
 		System.out.println(jsonMap);;
 		//create generic avro record 
@@ -139,5 +141,49 @@ public class TestEnd2EndAvro {
 		AvroParser<Map<String,?>> avroParser = new AvroParser<Map<String,?>>(schema);
 		Map<String,?> map = avroParser.parse(parentpayload, new HashMap<String,Object>());	
 		System.out.println(new RulesForwardWorker().searchMapFirstSubKey("RemoteRequest", map));
+	}
+	
+	@Test public void testProcess() throws JsonGenerationException, JsonMappingException, IOException, ExecutionException{
+		/*{"path":"/a/light","verb":"POST","payload":{ "value": true },"statusCode":2,"txId":"396790e1-09c8-409a-9274-37e578dc5d4e"}*/
+		
+		Map<String, Object> data = new HashMap<String,Object>();
+		data.put("path", "/a/light");
+		data.put("verb", "POST");
+		data.put("payload", "{ \"value\": true }");
+		data.put("statusCode", 2);
+		data.put("txId", "396790");
+		ObjectMapper mapper = new ObjectMapper();
+		String jsondata = mapper.writeValueAsString(data);
+		
+		//message sent over to kafka
+		
+		//security spark process : message recieved from  kafka in 
+		//Map<String,?> jsonMap = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"").parseJsonData(jsondata.getBytes());
+		SecurityAndAvroStandardizationStreamProcess proc = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"");
+		proc.createAndSendAvroToQueue(data,proc.getProps());
+		
+	}
+	
+	@Test public void testProcess2() throws JsonGenerationException, JsonMappingException, IOException, ExecutionException{
+		String jsondata = "{\"deviceId\" : \"54919CA5-4101-4AE4-595B-353C51AA983C\",\"path\" : \"/a/light\","
+				+ " \"payload\" : {\"value\" : true,\"brightness\" : 30 }}";
+		
+		
+		Map<String, Object> data = new HashMap<String,Object>();
+		data.put("deviceId", "54919CA5-4101-4AE4-595B-353C51AA983C");
+		data.put("path", "/a/light");
+		data.put("payload", "{\"value\" : true,\"brightness\" : 30}");
+
+		//ObjectMapper mapper = new ObjectMapper();
+		//String jsondata = mapper.writeValueAsString(data);
+		ObjectMapper mapper = new ObjectMapper();
+		data = mapper.readValue(jsondata, HashMap.class);
+		//message sent over to kafka
+		
+		//security spark process : message recieved from  kafka in 
+		//Map<String,?> jsonMap = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"").parseJsonData(jsondata.getBytes());
+		SecurityAndAvroStandardizationStreamProcess proc = new SecurityAndAvroStandardizationStreamProcess("device.event",1,"");
+		proc.createAndSendAvroToQueue(data,proc.getProps());
+		
 	}
 }

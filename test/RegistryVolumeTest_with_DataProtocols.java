@@ -23,12 +23,12 @@ import org.junit.Test;
 
 import io.parser.avro.AvroUtils;
 
-public class RESTVolumeTest_with_DataProtocols {
+public class RegistryVolumeTest_with_DataProtocols {
 	
 	
 	@Test
 	public void sendLargeMessage() throws IOException{
-		RESTVolumeTest_with_DataProtocols producer = new RESTVolumeTest_with_DataProtocols();
+		RegistryVolumeTest_with_DataProtocols producer = new RegistryVolumeTest_with_DataProtocols();
 		
 		// byte[] bytes = toAvro(
 		//			"kn 1 just testing a sentence with Maya's Monster Inc. Lamp And a very long sentence that makes this message even bigger for testing payload capacity","TELEMETRY");
@@ -44,9 +44,13 @@ public class RESTVolumeTest_with_DataProtocols {
 	
 	ExecutorService executor = null;
 	static Schema schema = null;
+	static URL url = null;
 	static {
 		try {
-			schema = new Schema.Parser().parse(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/current/NeustarMessage.avsc").openStream());
+			url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/queue/avro/stream/topic/out.topic.registry?userid=default");
+			//url = new URL("http://localhost:8988/JsonGatewayWebService/api/queue/avro/stream/topic/out.topic.registry?userid=default");
+
+			 schema = new Schema.Parser().parse(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/registry-to-spark/versions/current/remoterequest.avsc").openStream());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -60,11 +64,11 @@ public class RESTVolumeTest_with_DataProtocols {
 
 	public static void main(String args[]) throws IOException {
 
-		RESTVolumeTest_with_DataProtocols producer = new RESTVolumeTest_with_DataProtocols();
+		RegistryVolumeTest_with_DataProtocols producer = new RegistryVolumeTest_with_DataProtocols();
 		
 		try {
 			int i;
-			for ( i = 0; i < 1; i++) {
+			for ( i = 0; i < 2; i++) {
 				// send lots of messages
 				//producer.send(toAvro(String.format("{ \"t\":%.3f, \"k\":%d}", System.nanoTime() * 1e-9, i),"NOTIFICATION"));
 
@@ -75,11 +79,10 @@ public class RESTVolumeTest_with_DataProtocols {
 			
 				}else 
 					*/
-					byte[] bytes = toAvro(
-							"{\"owner\":\"kaniu\", \"test\":\"Testing the format of this internal json\"}","TELEMETRY");
 					//byte[] bytes = toAvro(
-					//		"kn 1 just testing a sentence with Maya's Monster Inc. 
-					//Lamp And a very long sentence that makes this message even bigger for testing payload capacity","NOTIFICATION");
+					//		"{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}","TELEMETRY");
+				byte[] bytes = toAvro(
+									"kn 1 just testing a sentence with Maya's Monster Inc. Lamp And a very long sentence that makes this message even bigger for testing payload capacity","TELEMETRY");
 
 				 
 			        producer.send(bytes);
@@ -105,30 +108,22 @@ public class RESTVolumeTest_with_DataProtocols {
 	}
 
 	public static byte[] toAvro(String payload, String type) throws IOException{
-		Schema schema_remoteReq = new Schema.Parser().parse(new URL("https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/registry-to-spark/versions/current/remoterequest.avsc").openStream());
+		//Schema schema_remoteReq = new Schema.Parser().parse(new File("/Users/kndungu/Documents/workspace/iot-serialization/resources/RemoteRequest.avsc"));
 		
-		GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
-		remotemesg.put("path", "/a/light");
-		remotemesg.put("payload","{\"value\":\"true\"}");
+		GenericRecord remotemesg = new GenericData.Record(schema);	
+		remotemesg.put("path", "/api/v1/devices");
+		remotemesg.put("payload","{\"value\":\"false\"}");
 		remotemesg.put("deviceId","RaspiLightUUID-Demo");
 		remotemesg.put("header","hub-request");
 		remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
-		remotemesg.put("statusCode",0);
 		remotemesg.put("verb","POST");
 		
-		/**
-		 *  {"path":"/a/light","verb":"POST","payload":"{\"value\":true}","header":"hub-request","txId":"a37183ac-ba57-4213-a7f3-1c1608ded09e","deviceId":"RaspiLightUUID-Demo"}*
-		 */
-		GenericRecord mesg = new GenericData.Record(schema);	
-		mesg.put("sourceid", "kaniu");
-		mesg.put("payload", null);
-		mesg.put("registrypayload", remotemesg);
-		mesg.put("messagetype", type);
-		mesg.put("createdate",  DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.FULL).format(new Date()));
-		mesg.put("messageid", UUID.randomUUID()+"");
+		
+		
+
 		//create avro
 		
-		byte[] avro = AvroUtils.serializeJava(mesg, schema);
+		byte[] avro = AvroUtils.serializeJava(remotemesg, schema);
 		
 		System.out.println(Bytes.toString(avro));
 		
@@ -136,10 +131,7 @@ public class RESTVolumeTest_with_DataProtocols {
 	}
 
 	public static URLConnection openConnection() throws IOException {
-		//URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8091/gateway/queues");
-		URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/api/queue/avro/stream/topic/testexternaltopic?userid=kaniu");
-		//URL url = new URL("http://127.0.0.1:8988/JsonGatewayWebService/api/queue/avro/stream/topic/testexternaltopic?userid=kaniu");
-		
+
 		URLConnection connection = url.openConnection();
 		connection.setDoOutput(true);
 		connection.setRequestProperty("Authorization",
@@ -164,21 +156,16 @@ public class RESTVolumeTest_with_DataProtocols {
 		@Override
 		public String call() throws Exception {
 			StringBuilder resposneBuilder = new StringBuilder();
-			OutputStream out = null;
-			BufferedReader in = null;
 			try {
-				URLConnection connection = RESTVolumeTest_with_DataProtocols.openConnection();
+				URLConnection connection = RegistryVolumeTest_with_DataProtocols.openConnection();
 				//OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
-				out = connection.getOutputStream();
-				
-				
+				OutputStream out = connection.getOutputStream();
 				try{
 				out.write(message);
-				in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
 				}finally{
 				out.close();
 				}
-				
+				BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
 
 				String response = null;
 				try{

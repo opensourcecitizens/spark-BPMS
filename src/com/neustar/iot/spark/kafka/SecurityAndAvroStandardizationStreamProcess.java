@@ -3,8 +3,10 @@ package com.neustar.iot.spark.kafka;
 import scala.Tuple2;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -18,6 +20,7 @@ import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
+import org.codehaus.jackson.map.ObjectMapper;
 
 import com.neustar.iot.spark.AbstractStreamProcess;
 
@@ -66,8 +69,8 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	@SuppressWarnings("unused")
 	private SecurityAndAvroStandardizationStreamProcess(){}
 	
-	public SecurityAndAvroStandardizationStreamProcess(String _topics, int _numThreads, String _outTopic) throws IOException {
-		inputTopics=_topics;
+	public SecurityAndAvroStandardizationStreamProcess(String _inTopics, int _numThreads, String _outTopic) throws IOException {
+		inputTopics=_inTopics;
 		numThreads=_numThreads;
 		//outputTopic=_outTopic;
 		
@@ -222,59 +225,67 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	}
 	
 
-	protected synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String, ?> jsonData, Properties props) throws IOException, ExecutionException {
-
+	public Properties getProps(){
+		return producerProperties;
+	}
+	public synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String, ?> jsonData, Properties props) throws IOException, ExecutionException {
+		
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 
-		GenericRecordBuilder outMap =  new GenericRecordBuilder(schema);
+		//GenericRecordBuilder outMap =  new GenericRecordBuilder(schema);
+		GenericRecord outMap = new GenericData.Record(schema);
 		
 		String time = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(new Date());
-		outMap.set("createdate", time);
+		outMap.put("createdate", time);
 		
 		
 		Schema schema_remoteReq = retrieveLatestAvroSchema(registry_avro_schema_web_url);
 		
 		if(props.getProperty("currentTopic").startsWith("device.event")){
 			String sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));
-			outMap.set("sourceid", sourceid);	
+			
+			GenericRecord remotemesg = temporaryCreateRemoteMessage(jsonData, schema_remoteReq);
+						
+			outMap.put("sourceid", sourceid);	
 			String msgid = UUID.randomUUID()+sourceid;
-			outMap.set("messageid", msgid);
-				
-			byte[] avro = AvroUtils.serializeJava(jsonData, schema_remoteReq);
-			GenericRecord remotemesg = AvroUtils.avroToJava(avro, schema_remoteReq);
+			outMap.put("messageid", msgid);	
+			
 			outMap = this.deviceEvent(outMap, remotemesg);
 			
 		}else if (props.getProperty("currentTopic").startsWith("device.out")){
 			String sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));
-			outMap.set("sourceid", sourceid);	
-			String msgid = UUID.randomUUID()+sourceid;
-			outMap.set("messageid", msgid);
+						
+			GenericRecord remotemesg = temporaryCreateRemoteMessage(jsonData, schema_remoteReq);
 			
-			byte[] avro = AvroUtils.serializeJava(jsonData, schema_remoteReq);
-			GenericRecord remotemesg = AvroUtils.avroToJava(avro, schema_remoteReq);
+			outMap.put("sourceid", sourceid);	
+			String msgid = UUID.randomUUID()+sourceid;
+			outMap.put("messageid", msgid);
+			
 			outMap = this.resolveDeviceState(outMap, remotemesg);
 				
-		}if(props.getProperty("currentTopic").startsWith("in.topic.oneid")){
+		}else if(props.getProperty("currentTopic").startsWith("in.topic.oneid")){
 			String sourceid = "oneid";
-			outMap.set("sourceid", sourceid);	
+			outMap.put("sourceid", sourceid);	
 			String msgid = UUID.randomUUID()+sourceid;
-			outMap.set("messageid", msgid);
-			
-			outMap.set("payload", jsonData.get("payload"));
-			outMap.set("messagetype", "TELEMENTRY");
+			outMap.put("messageid", msgid);
+			outMap.put("registrypayload", null);
+			outMap.put("payload", jsonData.get("payload"));
+			outMap.put("messagetype", StringUtils.isNoneEmpty(jsonData.get("messagetype").toString())?jsonData.get("messagetype"):"TELEMETRY");
 			
 		}else{
 			String sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));
-			outMap.set("sourceid", sourceid);	
+			outMap.put("sourceid", sourceid);	
 			String msgid = UUID.randomUUID()+sourceid;
-			outMap.set("messageid", msgid);
-			
-			outMap.set("payload", jsonData.get("payload"));
-			outMap.set("messagetype", jsonData.get("messagetype")!=null?jsonData.get("messagetype"):"TELEMETRY");
+			outMap.put("messageid", msgid);
+			outMap.put("registrypayload", null);
+			outMap.put("payload", jsonData.get("payload"));
+			outMap.put("messagetype", StringUtils.isNoneEmpty(jsonData.get("messagetype").toString())?jsonData.get("messagetype"):"TELEMETRY");
 
 		}
+		
+		//outMap.build().
 		//create avro
-		byte[] avro = AvroUtils.serializeJava(outMap.build(), schema);
+		byte[] avro = AvroUtils.serializeJava(outMap, schema);
 
 		@SuppressWarnings("resource")
 		KafkaProducer<String, byte[]> producer = new KafkaProducer<String, byte[]>(props);
@@ -283,31 +294,47 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		return response;
 	}
 	
-	public GenericRecordBuilder resolveDeviceState(GenericRecordBuilder curRecord,GenericRecord remotemesg){
+	private GenericRecord temporaryCreateRemoteMessage(Map<String,?> jsonData, Schema schema ){
+		GenericRecord record = new GenericData.Record(schema);
+		//GenericRecordBuilder builder = new GenericRecordBuilder(schema);
 		
-		curRecord.set("registrypayload", remotemesg);
+		///cleanup because schema is not imposed
+		record.put("path", jsonData.get("path")==null?"":jsonData.get("path"));
+		record.put("verb", jsonData.get("verb")==null?"":jsonData.get("verb"));
+		record.put("statusCode", jsonData.get("statusCode")==null?0:jsonData.get("statusCode"));
+		try {
+			record.put("payload", jsonData.get("payload")==null?"":objectToJson(jsonData.get("payload")));
+		} catch (Exception e) {
+			record.put("payload",e.getCause());
+		}
+
+		record.put("txId", jsonData.get("txId")==null?"":jsonData.get("txId"));
+		record.put("deviceId", jsonData.get("deviceId")==null?"":jsonData.get("deviceId"));
+		record.put("header", jsonData.get("header")==null?"":jsonData.get("header"));
+		///done cleanup
+		//byte[] avro = AvroUtils.serializeJava(jsonData, schema_remoteReq);
+		//GenericRecord remotemesg = AvroUtils.avroToJava(avro, schema_remoteReq);
+		return record;
+	}
+	
+	public GenericRecord resolveDeviceState(GenericRecord curRecord,GenericRecord remotemesg){
 		
-		//String payload =  remotemesg.get("payload").toString(); 
-		//String txId =  remotemesg.get("txId").toString();
+		curRecord.put("registrypayload", remotemesg);
 		
-		curRecord.set("payload", null);
+		curRecord.put("payload", null);
 		
-		curRecord.set("messagetype", "REGISTRY_POST");
+		curRecord.put("messagetype", "REGISTRY_POST");
 		
 		return curRecord;
 	}
 	
-	public GenericRecordBuilder deviceEvent(GenericRecordBuilder curRecord,GenericRecord remotemesg){
+	public GenericRecord deviceEvent(GenericRecord curRecord,GenericRecord remotemesg){
 		
-		curRecord.set("registrypayload", remotemesg);
+		curRecord.put("registrypayload", remotemesg);
 		
-		//String encodedPath = new Base64().encodeToString( remotemesg.get("path").toString().getBytes());
-		//String deviceId =  remotemesg.get("deviceId").toString();
-		//String remotePayload =  remotemesg.get("deviceId").toString();
-		//curRecord.set("payload", "{\"id\":\""+deviceId+"/"+encodedPath+"\", \"data\":\""+remotePayload+"\"}");
+		curRecord.put("payload", null);
 		
-		curRecord.set("payload", null);
-		curRecord.set("messagetype", "REGISTRY_PUT");
+		curRecord.put("messagetype", "REGISTRY_PUT");
 		
 		return curRecord;
 	}

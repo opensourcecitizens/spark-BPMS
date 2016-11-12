@@ -25,7 +25,7 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.junit.Test;
 
-import com.neustar.iot.spark.forward.mqtt.MQTTForwarder;
+import com.neustar.io.net.forward.mqtt.MQTTForwarder;
 
 import io.parser.avro.AvroUtils;
 
