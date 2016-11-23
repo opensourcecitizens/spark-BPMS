@@ -42,24 +42,32 @@ public abstract class AbstractStreamProcess implements Serializable{
 	 */
 	private static final long serialVersionUID = -6060091345310773499L;
 
-	protected static Properties properties = null;
+	protected static Properties streamProperties = null;
 	protected static Properties producerProperties = null;
+	protected static Properties consumerProperties = null;
 	
 	static{
-		InputStream props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
-		properties = new Properties();
+		InputStream consumerprops = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
+		InputStream streamprops = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("streamprocess.props");
+		InputStream producerprops = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
+		
+		consumerProperties = new Properties();
+		streamProperties = new Properties();
+		producerProperties = new Properties();
 		try{
-			properties.load(props);
-
-			if (properties.getProperty("group.id") == null) {
-				properties.setProperty("group.id", "group-localtest");
+			consumerProperties.load(consumerprops);
+			streamProperties.load(streamprops);
+			
+			if (streamProperties.getProperty("group.id") == null) {
+				streamProperties.setProperty("group.id", "group-localtest");
 			}
 
-			props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
-			producerProperties = new Properties();
-			producerProperties.load(props);
+			
+			producerProperties.load(producerprops);
+			
 		}catch(Exception e){
 			log.error(e,e);
+			e.printStackTrace();
 		}
 	}
 
@@ -255,6 +263,18 @@ public abstract class AbstractStreamProcess implements Serializable{
 		}catch(Throwable e2){
 			log.error(e, e);
 		}
+	}
+
+	public Properties getStreamProperties() {
+		return streamProperties;
+	}
+
+	public Properties getProducerProperties() {
+		return producerProperties;
+	}
+
+	public Properties getConsumerProperties() {
+		return consumerProperties;
 	}
 
 
