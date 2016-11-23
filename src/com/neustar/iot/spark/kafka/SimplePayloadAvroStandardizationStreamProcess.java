@@ -71,22 +71,8 @@ public final class SimplePayloadAvroStandardizationStreamProcess extends Abstrac
 		numThreads=_numThreads;
 		outputTopic=_outTopic;
 		
-		/*
-		InputStream props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("consumer.props");
-		properties = new Properties();
-		properties.load(props);
-
-		if (properties.getProperty("group.id") == null) {
-			properties.setProperty("group.id", "group-localtest");
-		}
-		
-		props = SimplePayloadAvroStandardizationStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
-		producerProperties = new Properties();
-		producerProperties.load(props);
-		*/
-
-		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
-		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
+		hdfs_output_dir = streamProperties.getProperty("hdfs.outputdir");
+		avro_schema_web_url = streamProperties.getProperty("avro.schema.web.url")!=null?new URL(streamProperties.getProperty("avro.schema.web.url")):null;
 		
 	}
 
@@ -120,7 +106,7 @@ public final class SimplePayloadAvroStandardizationStreamProcess extends Abstrac
 		 // Create direct kafka stream with brokers and topics
 		 Set<String> topicsSet = new HashSet<>(Arrays.asList(inputTopics.split(",")));
 		 Map<String, String> kafkaParams = new HashMap<>();
-		    kafkaParams.put("metadata.broker.list", properties.getProperty("bootstrap.servers"));
+		    kafkaParams.put("metadata.broker.list", consumerProperties.getProperty("bootstrap.servers"));
 		    
 	    JavaPairInputDStream<String, byte[]> messages = KafkaUtils.createDirectStream(
 	        jssc,

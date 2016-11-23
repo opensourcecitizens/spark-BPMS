@@ -75,9 +75,9 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 		outputTopic=_outTopic;
 
 		producerProperties.setProperty("topic.id", outputTopic);
-		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
-		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
-		registry_avro_schema_web_url=properties.getProperty("registry.avro.schema.web.url")!=null?new URL(properties.getProperty("registry.avro.schema.web.url")):null;
+		hdfs_output_dir = streamProperties.getProperty("hdfs.outputdir");
+		avro_schema_web_url = streamProperties.getProperty("avro.schema.web.url")!=null?new URL(streamProperties.getProperty("avro.schema.web.url")):null;
+		registry_avro_schema_web_url=streamProperties.getProperty("registry.avro.schema.web.url")!=null?new URL(streamProperties.getProperty("registry.avro.schema.web.url")):null;
 	}
 
 	public static void main(String[] args) throws IOException {
@@ -97,7 +97,7 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 		
 		SparkConf sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.driver.allowMultipleContexts","true");
 		
-		// Create the context with 1000 milliseconds batch size
+		// Create the context with 500 milliseconds batch size
 		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(500));
 		
 		Map<String, Integer> topicMap = new HashMap<>();
@@ -109,7 +109,7 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 		 // Create direct kafka stream with brokers and topics
 		 Set<String> topicsSet = new HashSet<>(Arrays.asList(inputTopics.split(",")));
 		 Map<String, String> kafkaParams = new HashMap<>();
-		    kafkaParams.put("metadata.broker.list", properties.getProperty("bootstrap.servers"));
+		    kafkaParams.put("metadata.broker.list", consumerProperties.getProperty("bootstrap.servers"));
 		    
 	    JavaPairInputDStream<String, byte[]> messages = KafkaUtils.createDirectStream(
 	        jssc,

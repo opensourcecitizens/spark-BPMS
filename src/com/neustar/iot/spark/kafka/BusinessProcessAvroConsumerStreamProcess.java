@@ -54,7 +54,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	private String topics_str = null;
 	private int numThreads;
 	
-	private String phoenix_zk_JDBC = null;
+
 	private String hdfs_output_dir = null;
 	private String avro_schema_hdfs_location = null;
 	private URL avro_schema_web_url = null;
@@ -64,11 +64,10 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	public BusinessProcessAvroConsumerStreamProcess(String _topics, int _numThreads) throws IOException {
 		topics_str=_topics;
 		numThreads=_numThreads;
-				
-		phoenix_zk_JDBC = properties.getProperty("phoenix.zk.jdbc");
-		hdfs_output_dir = properties.getProperty("hdfs.outputdir");
-		avro_schema_hdfs_location = properties.getProperty("avro.schema.hdfs.location");
-		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
+						
+		hdfs_output_dir = streamProperties.getProperty("hdfs.outputdir");
+		avro_schema_hdfs_location = streamProperties.getProperty("avro.schema.hdfs.location");
+		avro_schema_web_url = streamProperties.getProperty("avro.schema.web.url")!=null?new URL(streamProperties.getProperty("avro.schema.web.url")):null;
 
 	}
 
@@ -90,8 +89,8 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 		//StreamingExamples.setStreamingLogLevels();
 		SparkConf sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.driver.allowMultipleContexts","true");
 		
-		// Create the context with 1000 milliseconds batch size
-		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(1000));
+		// Create the context with 200 milliseconds batch size
+		JavaStreamingContext jssc = new JavaStreamingContext(sparkConf, new Duration(200));
 		
 		Map<String, Integer> topicMap = new HashMap<>();
 		String[] topics = topics_str.split(",");
@@ -102,7 +101,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 		 // Create direct kafka stream with brokers and topics
 		 Set<String> topicsSet = new HashSet<>(Arrays.asList(topics_str.split(",")));
 		 Map<String, String> kafkaParams = new HashMap<>();
-		    kafkaParams.put("metadata.broker.list", properties.getProperty("bootstrap.servers"));
+		    kafkaParams.put("metadata.broker.list", consumerProperties.getProperty("bootstrap.servers"));
 		    
 	    JavaPairInputDStream<String, byte[]> messages = KafkaUtils.createDirectStream(
 	        jssc,
@@ -148,7 +147,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 				} catch (Exception e) {
 					log.error(e,e);
 					//check error and decide if to recycle msg if parser error.
-					e.printStackTrace();
+					//e.printStackTrace();
 					
 					reportException(data,e);
 					
