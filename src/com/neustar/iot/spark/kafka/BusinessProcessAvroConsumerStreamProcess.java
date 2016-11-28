@@ -58,7 +58,6 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	private String hdfs_output_dir = null;
 	private String avro_schema_hdfs_location = null;
 	private URL avro_schema_web_url = null;
-	//private Properties properties = null;
 	private static String APP_NAME ="BusinessProcessStreamProcessor";
 	
 	public BusinessProcessAvroConsumerStreamProcess(String _topics, int _numThreads) throws IOException {
@@ -86,7 +85,6 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	
 	public void run() throws IOException{
 		
-		//StreamingExamples.setStreamingLogLevels();
 		SparkConf sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.driver.allowMultipleContexts","true");
 		
 		// Create the context with 200 milliseconds batch size
