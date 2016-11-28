@@ -96,7 +96,7 @@ public class TestDroolsAnsForwarders {
 	 {
 		 	String restUri = "http://ec2-52-41-124-186.us-west-2.compute.amazonaws.com:8080";
 			GenericRecord mesg = new GenericData.Record(schema);		
-			mesg.put("id", "device1");
+			mesg.put("sourceid", "device1");
 			mesg.put("payload", "owners/143");
 			mesg.put("messagetype", "REGISTRY_GET");
 			
@@ -239,6 +239,63 @@ public class TestDroolsAnsForwarders {
 			
 	 }	 
 	 
+	 
+	 
+	 
+	 @Test public void testRegistryDeviceDiscoveryPOSTCall() throws Throwable
+	 {
+		 	
+		 	Schema schema = new Schema.Parser().parse(new File("/Users/kndungu/Documents/workspace/iot-serialization/resources/NeustarMessage.avsc"));
+			GenericRecord mesg = new GenericData.Record(schema);	
+			
+			mesg.put("sourceid", "device1");
+			mesg.put("payload", null);
+			mesg.put("messagetype", "DEVICE_ONBOARDING");
+			mesg.put("createdate",  DateFormat.getDateInstance().format(new Date())+"");
+			mesg.put("messageid", UUID.randomUUID()+"");
+			
+			/*
+			 * {"path":"/a/light","verb":"POST","payload":"{\"value\":true}","header":"hub-request","txId":"a37183ac-ba57-4213-a7f3-1c1608ded09e","deviceId":"RaspiLightUUID-Demo"}
+			 * 
+			 * */
+	
+			Schema schema_remoteReq = new Schema.Parser().parse(new File("/Users/kndungu/Documents/workspace/iot-serialization/resources/RemoteRequest.avsc"));
+			
+			GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
+			/*
+			remotemesg.put("path", "/api/v1/devices");
+			remotemesg.put("payload","{\"value\":\"false\"}");
+			remotemesg.put("deviceId","RaspiLightUUID-Demo");
+			remotemesg.put("header","hub-request");
+			remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
+			remotemesg.put("verb","POST");
+			*/
+
+			remotemesg.put("statusCode", 0);
+			remotemesg.put("path", "/device/testHubId/hub/foundDevice");
+			remotemesg.put("payload","[{\"val\":[{\"rt\":[\"oic.wk.res\"],\"di\":\"RaspiLightUUID-Demo\",\"links\":[{\"href\":\"/oic/res\",\"rel\":\"self\",\"rt\":[\"oic.r.collection\"],\"if\":[\"oic.if.ll\"]},{\"href\":\"/a/light\",\"rel\":\"hosts\",\"rt\":[\"oic.r.switch.binary\",\"oic.r.light.brightness\"],\"if\":[\"oic.if.a\"]},{\"href\":\"/oic/d\",\"rt\":[\"oic.wk.d\"],\"if\":[\"oic.if.r\"]},{\"href\":\"/oic/p\",\"rt\":[\"oic.wk.p\"],\"if\":[\"oic.if.r\"]},{\"href\":\"/oic/sec/doxm\",\"rt\":[\"oic.r.doxm\"],\"if\":[\"oic.if.r\"]},{\"href\":\"/oic/sec/pstat\",\"rt\":[\"oic.r.pstat\"],\"if\":[\"oic.if.r\"]},{\"href\":\"/oic/sec/acl\",\"rt\":[\"oic.r.acl\"],\"if\":[\"oic.if.r\"]},{\"href\":\"/oic/sec/cred\",\"rt\":[\"oic.r.cred\"],\"if\":[\"oic.if.r\"]}]}],\"href\":\"/oic/res\"},{\"val\":{\"value\":false,\"brightness\":30},\"href\":\"/a/light\"},{\"val\":{\"n\":\"Device 1\",\"rt\":[\"oic.wk.d\"],\"di\":\"54919CA5-4101-4AE4-595B-353C51AA983C\",\"icv\":\"core.1.1.0\",\"dmv\":\"res.1.1.0\"},\"href\":\"/oic/d\"},{\"val\":{\"pi\":\"54919CA5-4101-4AE4-595B-353C51AA983C\",\"rt\":[\"oic.wk.p\"],\"mnmn\":\"Acme, Inc\"},\"href\":\"/oic/p\"},{\"val\":{\"oxms\":[0],\"oxmsel\":0,\"sct\":1,\"owned\":false,\"deviceuuid\":\"MFG_DEFAULT_UUID\",\"deviceid\":{\"idt\":\"0\",\"id\":\"MFG_DEFAULT_UUID\"},\"devowneruuid\":null,\"devowner\":null,\"rowneruuid\":null,\"rowner\":{}},\"href\":\"/oic/sec/doxm\"},{\"val\":{\"dos\":{\"s\":0,\"p\":false},\"isop\":false,\"cm\":1,\"tm\":2,\"om\":2,\"sm\":7,\"deviceuuid\":\"MFG_DEFAULT_UUID\",\"deviceid\":{\"idt\":\"0\",\"id\":\"MFG_DEFAULT_UUID\"},\"rowneruuid\":null,\"rowner\":{}},\"href\":\"/oic/sec/pstat\"},{\"val\":{\"aclist\":{\"aces\":[]},\"rowneruuid\":null,\"rowner\":{}},\"href\":\"/oic/sec/acl\"},{\"val\":{\"creds\":[],\"rowneruuid\":null,\"rowner\":{}},\"href\":\"/oic/sec/cred\"}]");
+			remotemesg.put("deviceId","RaspiLightUUID-Demo");
+			remotemesg.put("header","hub-request");
+			remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
+			remotemesg.put("verb","POST");
+			remotemesg.put("statusCode",0);
+			
+			//byte[] payloadavro = AvroUtils.serializeJava(remotemesg, schema_remoteReq);
+			//GenericRecord genericPayload = AvroUtils.avroToJava(payloadavro, schema_remoteReq);
+			mesg.put("registrypayload", remotemesg);
+			
+			System.out.println(mesg.toString());
+			//create avro
+			//byte[] avrodata = AvroUtils.serializeJson(mesg.toString(), schema);
+			byte[] avrodata = AvroUtils.serializeJava(mesg, schema);
+			//avro to map
+			AvroParser<Map<String,?>> parser = new AvroParser<Map<String,?>>(schema);
+			
+			Map<String,?> avromap =  parser.parse(avrodata, schema);
+
+			runRules(avromap);
+			
+	 }	
 	 
 	 @Test public void testRegistryPOSTCall() throws Throwable
 	 {
