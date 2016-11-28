@@ -5,6 +5,9 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URL;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -25,6 +28,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.neustar.iot.spark.AbstractStreamProcess;
+import com.neustar.iot.spark.cache.StaticCacheManager;
 import com.neustar.io.net.forward.ForwarderIfc;
 import com.neustar.io.net.forward.mqtt.MQTTForwarder;
 import com.neustar.io.net.forward.phoenix.PhoenixForwarder;
@@ -47,7 +51,9 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 	private URL avro_schema_web_url = null;
 	private URL registry_avro_schema_web_url = null;
 	private String user_rules_hdfs_location = null;
-	private Properties properties = null;
+	private String phoenix_zk_jdbc_uri = null;
+	private String rules_table_name = null;
+
 
 	public RulesForwardWorker() {
 		try {
@@ -58,22 +64,17 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 	}
 
 	protected void loadPropertiesFromDB() throws IOException {
-		InputStream props = RulesForwardWorker.class.getClassLoader().getResourceAsStream("consumer.props");
-		properties = new Properties();
-		properties.load(props);
 
-		if (properties.getProperty("group.id") == null) {
-			properties.setProperty("group.id", "group-localtest");
-		}
-
-		user_rules_hdfs_location = properties.getProperty("rules.hdfs.location");
-		avro_schema_web_url = properties.getProperty("avro.schema.web.url")!=null?new URL(properties.getProperty("avro.schema.web.url")):null;
-		registry_avro_schema_web_url = properties.getProperty("registry.avro.schema.web.url")!=null?new URL(properties.getProperty("registry.avro.schema.web.url")):null;
+		user_rules_hdfs_location = streamProperties.getProperty("rules.hdfs.location");
+		avro_schema_web_url = streamProperties.getProperty("avro.schema.web.url")!=null?new URL(streamProperties.getProperty("avro.schema.web.url")):null;
+		registry_avro_schema_web_url = streamProperties.getProperty("registry.avro.schema.web.url")!=null?new URL(streamProperties.getProperty("registry.avro.schema.web.url")):null;
+		phoenix_zk_jdbc_uri = streamProperties.getProperty("phoenix.zk.jdbc");
+		rules_table_name = streamProperties.getProperty("rules.tablename");
 	}
 
 	protected Schema readSchemaFromLocal(Schema.Parser parser) throws IOException{
 		//loadPropertiesFromDB();
-		
+
 		InputStream in = RulesForwardWorker.class.getClassLoader().getResourceAsStream("CustomMessage.avsc");
 
 		Schema ret = null;
@@ -86,13 +87,13 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 	}	
 
 	protected Schema retrieveLatestAvroSchema() throws IOException, ExecutionException {
-		
+
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 		return schema;
 	}
-	
+
 	protected Schema retrieveLatestRegistryAvroSchema() throws IOException, ExecutionException {
-		
+
 		Schema schema = retrieveLatestAvroSchema(registry_avro_schema_web_url);
 		return schema;
 	}
@@ -100,7 +101,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 	public String writeToDB(String phoenix_zk_JDBC,String tablename , Map<String, ?> map, Map<String, ?> attr ) {
 
 		try {
-			ForwarderIfc phoenixConn = PhoenixForwarder.instance(phoenix_zk_JDBC,tablename);
+			ForwarderIfc phoenixConn = getCachedDBForwarder(phoenix_zk_JDBC,tablename);//PhoenixForwarder.instance(phoenix_zk_JDBC,tablename);
 			Schema schema = retrieveLatestAvroSchema();
 			return phoenixConn.forward(map, schema, attr);
 		} catch (Throwable e) {
@@ -109,6 +110,45 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		}
 
 	}
+	
+	private ForwarderIfc getCachedDBForwarder(String phoenix_zk_JDBC,String tablename) throws ExecutionException{
+		
+		Map<String,Object> request = new HashMap<String,Object>();
+		request.put("jdbcurl", phoenix_zk_JDBC);
+		request.put("table", tablename);
+
+		
+		LoadingCache<Map<?,?>, ForwarderIfc> restGetCache = null;
+		
+		if((restGetCache = (LoadingCache<Map<?,?>, ForwarderIfc>) StaticCacheManager.getCache(StaticCacheManager.CACHE_TYPE.PhoenixForwarderCache))!=null){
+			return restGetCache.get(request);
+		}
+
+
+		CacheLoader<Map<?,?>,ForwarderIfc> loader = new CacheLoader<Map<?,?>,ForwarderIfc>(){
+			@Override
+			public ForwarderIfc load(Map<?,?> req) throws Exception  {
+
+				String jdbc = (String) req.get("jdbcurl");
+				
+				String table = (String) req.get("table");
+
+
+				ForwarderIfc forwarder = PhoenixForwarder.instance(jdbc,table);
+
+				return forwarder;
+
+			}
+		};
+
+		restGetCache = CacheBuilder.newBuilder().maximumSize(10).refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+		
+		StaticCacheManager.insertCache(StaticCacheManager.CACHE_TYPE.PhoenixForwarderCache, restGetCache);
+		
+		return restGetCache.get(request);	
+
+	}
+	
 
 	public String remoteRestPut(String rest_Uri, Map<String, ?> map,  Map<String, ?> attr) {
 		try {
@@ -122,19 +162,19 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			return EXCEPTION+ExceptionUtils.getStackTrace(e);
 		}
 	}
-	
-	
+
+
 	public String remoteMQTTCall(String brokerUri,String clientId, Map<String, ?> map,  Map<String, ?> attr, Boolean ... registry) {
 		try {
-			
+
 			Schema schema = null;
 			if(registry==null || registry[0]==false)
 				schema = retrieveLatestAvroSchema();
 			else
 				schema = retrieveLatestRegistryAvroSchema();
-			
+
 			ForwarderIfc forwarder = new MQTTForwarder(brokerUri,clientId);
-			
+
 			return forwarder.forward(map, schema, attr);
 		} catch (Throwable e) {
 			log.error(e);
@@ -142,7 +182,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		}
 	}
 
-	
+
 	public String subscribeToMQTT(String brokerUri,String clientId,  Map<String, ?> attr, Integer ... timeout ) {
 		try {
 
@@ -152,14 +192,12 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			byte[] results = forwarder.pollMessage(pollingtimeout);//wait for 6 seconds
 			ObjectMapper mapper = new ObjectMapper();
 			return mapper.readValue(results, String.class);
-			//return results;
 		} catch (Throwable e) {
 			log.error(e);
-			//return EXCEPTION+e.getMessage();
 		}
 		return null;
 	}
-	
+
 	public String remoteRestGet(String rest_Uri, Map<String, ?> map,  Map<String, ?> attr) {
 
 		try {
@@ -172,33 +210,35 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			return EXCEPTION+e.getMessage();
 		}
 	}
-	
-	public String getSecurityToken(String userid){
-		return "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ik1UVTRRVFZEUTBFMFJVSXhSRU5HTWpCR01FRTBPRGMwUTBRMU5VUkVOelV4T1VKRE1UQkZOQSJ9.eyJyb2xlIjoiSU5URVJOQUxfU0VSVklDRV9ST0xFIiwicHJpbWFyeUlkIjozMzEsImlzcyI6Imh0dHBzOi8vYmFnZGkuYXV0aDAuY29tLyIsInN1YiI6ImF1dGgwfDU4MWJiMTBiMmVlZTk4NmYwNTAwMDQzYiIsImF1ZCI6ImM3R2pORlpHelJPOFRkaENiVklORHl0S09PR3MzUWhWIiwiZXhwIjoyNDc4MjEwMDIyLCJpYXQiOjE0NzgyMTAwMjJ9.DhUwo7nnXDlffq2kv15BoalZHCUuPuzMXGOrXaqvs3Um2EPxRMr2xIDUN4VQlUvWzUvGlh3G4hw-5q18fCqLGWt4FPHNj5JzWYnNubO68eiTKVnjIa0s0Z9aW7-yYXl28xdaM7X1h_6JeR2Skr_-TGmPVQOSQGzXLXUJbG_tWfNrx0sGmE7CWShHw6wPqUjmp-wJCoid45gqlyEKi_X3HU9nQPM7yWWP8wdz2ruQVlXsvay8dV_0bqRqZY-4G_vL4a2a7683o-VQfV0AEjiI0ToXu345Pzqxlkb6mkKBzb3f8zQHI3aLbsd7WAoBiJfJupsFC2VY18oXLgTfHG9H0Q";
-		//in the future, make a localCachedRestGet to a url
-	}
-	
+
 	public String localCachedRestGet(String rest_Uri, final Map<String, ?> _data,  final Map<String, ?> _attr) throws ExecutionException {
-		
-		
-		
+
+
+
 		Map<String,Object> request = new HashMap<String,Object>();
 		request.put("url", rest_Uri);
 		request.put("data", _data);
 		request.put("attr", _attr);
 		
-		CacheLoader<Map<String,Object>,String> loader = new CacheLoader<Map<String,Object>,String>(){
+		LoadingCache<Map<?,?>, String> restGetCache = null;
+		
+		if((restGetCache = (LoadingCache<Map<?,?>, String>) StaticCacheManager.getCache(StaticCacheManager.CACHE_TYPE.RestGetCache))!=null){
+			return restGetCache.get(request);
+		}
+
+
+		CacheLoader<Map<?,?>,String> loader = new CacheLoader<Map<?,?>,String>(){
 			@Override
-			public String load(Map<String,Object> req) throws Exception  {
-				
+			public String load(Map<?,?> req) throws Exception  {
+
 				String url = (String) req.get("url");
 				@SuppressWarnings("unchecked")
 				Map<String,?> data = (Map<String,?>) req.get("data");
 				@SuppressWarnings("unchecked")
 				Map<String,?> attr = (Map<String,?>) req.get("attr");
-				
+
 				ForwarderIfc forwarder = RestfulGetForwarder.instance(url);
-				
+
 				try{
 					Schema schema = retrieveLatestAvroSchema();
 					String res =  forwarder.forward(data, schema,attr);
@@ -206,38 +246,44 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 				}catch(Throwable e){
 					throw new Exception(e);
 				}
-				
+
 			}
 		};
 
-		LoadingCache<Map<String,Object>, String> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+		restGetCache = CacheBuilder.newBuilder().maximumSize(10).refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+		
+		StaticCacheManager.insertCache(StaticCacheManager.CACHE_TYPE.RestGetCache, restGetCache);
+		
+		return restGetCache.get(request);	
 
-		return cache.get(request);	
-	
 	}
-	
-	
+
+
 	public String localCachedRestPost(String rest_Uri, final Map<String, ?> _data,  final Map<String, ?> _attr) throws ExecutionException {
-		
-		
-		
+
 		Map<String,Object> request = new HashMap<String,Object>();
 		request.put("url", rest_Uri);
 		request.put("data", _data);
 		request.put("attr", _attr);
 		
-		CacheLoader<Map<String,Object>,String> loader = new CacheLoader<Map<String,Object>,String>(){
+		LoadingCache<Map<?,?>, String> cache = null;
+		
+		if((cache = (LoadingCache<Map<?,?>, String>) StaticCacheManager.getCache(StaticCacheManager.CACHE_TYPE.RestPostCache))!=null){
+			return cache.get(request);
+		}
+
+		CacheLoader<Map<?,?>,String> loader = new CacheLoader<Map<?,?>,String>(){
 			@Override
-			public String load(Map<String,Object> req) throws Exception  {
-				
+			public String load(Map<?,?> req) throws Exception  {
+
 				String url = (String) req.get("url");
 				@SuppressWarnings("unchecked")
 				Map<String,?> data = (Map<String,?>) req.get("data");
 				@SuppressWarnings("unchecked")
 				Map<String,?> attr = (Map<String,?>) req.get("attr");
-				
+
 				ForwarderIfc forwarder = RestfulPostForwarder.instance(url);
-				
+
 				try{
 					Schema schema = retrieveLatestAvroSchema();
 					String res =  forwarder.forward(data, schema,attr);
@@ -245,16 +291,18 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 				}catch(Throwable e){
 					throw new Exception(e);
 				}
-				
+
 			}
 		};
 
-		LoadingCache<Map<String,Object>, String> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+		cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
 
+		StaticCacheManager.insertCache(StaticCacheManager.CACHE_TYPE.RestPostCache, cache);
+		
 		return cache.get(request);	
-	
+
 	}
-	
+
 	public String remoteRestPost(String rest_Uri, Map<String, ?> map,  Map<String, ?> attr) {
 
 		try {
@@ -268,7 +316,7 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 			return EXCEPTION+ExceptionUtils.getStackTrace(e);
 		}
 	}
-	
+
 	public String remoteElasticSearchPost (String rest_Uri, Map<String, ?> map,  Map<String, ?> attr) {
 
 		try {
@@ -305,20 +353,34 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 
 		return rulesStream;
 	}
-	
+
+	public String queryDBForRuleURI(String uniqueId) throws ClassNotFoundException, SQLException{
+		PhoenixForwarder phoenix = PhoenixForwarder.instance(phoenix_zk_jdbc_uri,rules_table_name);
+		PreparedStatement statement = phoenix.getConn().prepareCall("SELECT FILE_URI FROM "+rules_table_name+" WHERE SOURCEID like '"+uniqueId+"'");
+		ResultSet result = statement.executeQuery();
+
+		String fileUri = null;
+		while(result.next()){
+			fileUri = result.getString("FILE_URI");
+		}
+
+
+		return fileUri;
+	}
+
 	public InputStream retrieveRulesFromHDFS(String uniqueId) throws IOException {
-		
+
 		uniqueId = rulesTempDB.containsKey(uniqueId) ? uniqueId : "default";
-		
+
 		String uri = user_rules_hdfs_location+"/"+rulesTempDB.get(uniqueId);
-		
+
 		Configuration conf = new Configuration();
 		FileSystem fs = FileSystem.get(URI.create(uri), conf);
 
 		return fs.open(new Path(uri));
 
 	}
-	
+
 	public Object searchJson(String searchKey, String jsonStr){
 		Map<String, ?> map;
 		try {
@@ -329,11 +391,11 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		}
 		return searchMap(searchKey, map);
 	}
-	
+
 	public synchronized Object searchMap(String searchkey, Map<String,?>map){
-	
+
 		if(map==null||map.isEmpty())return null;
-		
+
 		Set<String> keyset = map.keySet();
 		Object retObj = null;
 		for(String key : keyset){
@@ -348,11 +410,11 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		}
 		return retObj;
 	}
-	
+
 	public synchronized Object searchMapFirstSubKey(String searchkey, Map<String,?>map){
-		
+
 		if(map==null||map.isEmpty())return null;
-		
+
 		Set<String> keyset = map.keySet();
 		Object retObj = null;
 		for(String key : keyset){

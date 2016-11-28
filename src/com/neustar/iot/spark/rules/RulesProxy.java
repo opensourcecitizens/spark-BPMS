@@ -17,6 +17,7 @@ import org.kie.api.io.ResourceType;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.neustar.iot.spark.cache.StaticCacheManager;
 
 import io.rules.drools.StatelessRuleRunner;
 
@@ -63,7 +64,11 @@ public class RulesProxy {
 	}
 	
 	private String queryForCachedRules(final String customerId) throws IOException, ExecutionException {
-		
+		LoadingCache<String, String> cache = null;
+		if((cache = (LoadingCache<String, String>) StaticCacheManager.getCache(StaticCacheManager.CACHE_TYPE.RulesCache))!=null){
+			return cache.get(customerId);
+		}
+			
 		CacheLoader<String,String> loader = new CacheLoader<String,String>(){
 			@Override
 			public String load(String key) throws Exception {
@@ -72,11 +77,15 @@ public class RulesProxy {
 			}
 		};
 		
-		LoadingCache<String, String> cache = CacheBuilder.newBuilder().
+		cache = CacheBuilder.newBuilder().
 				refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
-			
+		
+		StaticCacheManager.insertCache(StaticCacheManager.CACHE_TYPE.RulesCache, cache);	
+		
 		return cache.get(customerId);
 	}
+	
+
 	
 	private String queryForRules(String customerId) throws IOException {
 		String ret = null;

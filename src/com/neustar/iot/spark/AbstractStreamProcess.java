@@ -28,6 +28,7 @@ import org.codehaus.jackson.type.TypeReference;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.neustar.iot.spark.cache.StaticCacheManager;
 import com.neustar.iot.spark.kafka.SimplePayloadAvroStandardizationStreamProcess;
 import com.neustar.iot.spark.rules.RulesForwardWorker;
 
@@ -156,6 +157,12 @@ public abstract class AbstractStreamProcess implements Serializable{
 	 * */
 	@Deprecated
 	public synchronized Schema retrieveLatestAvroSchema(String avro_schema_hdfs_location) throws IOException, ExecutionException{
+		
+		LoadingCache<String,Schema> cache = null;
+		if((cache = (LoadingCache<String,Schema>) StaticCacheManager.getCache(StaticCacheManager.CACHE_TYPE.HdfsSchemaCache))!=null){
+			return cache.get(avro_schema_hdfs_location);
+		}
+		
 		CacheLoader<String,Schema> loader = new CacheLoader<String,Schema>(){
 			@Override
 			public Schema load(String key) throws Exception {
@@ -164,13 +171,21 @@ public abstract class AbstractStreamProcess implements Serializable{
 			}
 		};
 
-		LoadingCache<String, Schema> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
-
+		cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+		
+		StaticCacheManager.insertCache(StaticCacheManager.CACHE_TYPE.HdfsSchemaCache, cache);
+		
 		return cache.get(avro_schema_hdfs_location);		
 	}
 
 
 	public synchronized Schema retrieveLatestAvroSchema(URL avroWebUrl) throws IOException, ExecutionException{
+		
+		LoadingCache<URL,Schema> cache = null;
+		if((cache = (LoadingCache<URL,Schema>) StaticCacheManager.getCache(StaticCacheManager.CACHE_TYPE.WebSchemaCache))!=null){
+			return cache.get(avroWebUrl);
+		}
+		
 		CacheLoader<URL,Schema> loader = new CacheLoader<URL,Schema>(){
 			@Override
 			public Schema load(URL key) throws Exception {
@@ -179,13 +194,21 @@ public abstract class AbstractStreamProcess implements Serializable{
 			}
 		};
 
-		LoadingCache<URL, Schema> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+		cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
 
+		StaticCacheManager.insertCache(StaticCacheManager.CACHE_TYPE.WebSchemaCache, cache);
+		
 		return cache.get(avroWebUrl);		
 	}
 
 
 	public synchronized Properties retrieveLocalPackageProperties(final String propfile) throws IOException, ExecutionException{
+		
+		LoadingCache<String, Properties> cache = null;
+		if((cache = (LoadingCache<String, Properties>) StaticCacheManager.getCache(StaticCacheManager.CACHE_TYPE.PropertiesCache))!=null){
+			return cache.get(propfile);
+		}
+		
 		CacheLoader<String,Properties> loader = new CacheLoader<String,Properties>(){
 			@Override
 			public Properties load(String key) throws Exception {
@@ -197,7 +220,9 @@ public abstract class AbstractStreamProcess implements Serializable{
 			}
 		};
 
-		LoadingCache<String, Properties> cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+		cache = CacheBuilder.newBuilder().refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
+
+		StaticCacheManager.insertCache(StaticCacheManager.CACHE_TYPE.PropertiesCache, cache);
 
 		return cache.get(propfile);		
 	}
