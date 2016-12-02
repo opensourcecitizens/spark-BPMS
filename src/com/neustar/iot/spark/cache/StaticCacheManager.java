@@ -7,7 +7,7 @@ import com.google.common.cache.LoadingCache;
 
 public class StaticCacheManager {
 	
-	 public enum CACHE_TYPE {RulesCache, RestPostCache, RestGetCache, WebSchemaCache, PropertiesCache, HdfsSchemaCache, PhoenixForwarderCache};
+	 public enum CACHE_TYPE {RulesCache, RestPostCache, RestGetCache, WebSchemaCache, PropertiesCache, HdfsSchemaCache, PhoenixForwarderCache, KafkaProducerCache};
 	 
 	 public final static Map<CACHE_TYPE, LoadingCache> caches = new ConcurrentHashMap<CACHE_TYPE, LoadingCache>();
 	 

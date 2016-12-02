@@ -21,7 +21,12 @@ import com.neustar.iot.spark.cache.StaticCacheManager;
 
 import io.rules.drools.StatelessRuleRunner;
 
-public class RulesProxy {
+public class RulesProxy implements  java.io.Serializable{
+	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 2894662285905184948L;
 	
 	private static final Logger log = Logger.getLogger(RulesProxy.class);
 	

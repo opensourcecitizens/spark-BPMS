@@ -6,6 +6,7 @@ import java.io.Serializable;
 import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -19,6 +20,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Logger;
 import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.map.JsonMappingException;
@@ -28,6 +30,8 @@ import org.codehaus.jackson.type.TypeReference;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.cache.RemovalListener;
+import com.google.common.cache.RemovalNotification;
 import com.neustar.iot.spark.cache.StaticCacheManager;
 import com.neustar.iot.spark.kafka.SimplePayloadAvroStandardizationStreamProcess;
 import com.neustar.iot.spark.rules.RulesForwardWorker;
@@ -71,6 +75,17 @@ public abstract class AbstractStreamProcess implements Serializable{
 			e.printStackTrace();
 		}
 	}
+	
+	
+	
+	public FileSystem acquireFS() throws IOException{
+		FileSystem  fs_  = null;
+		if(fs_==null){
+			Configuration conf = createHDFSConfiguration();
+			fs_ = FileSystem.get(conf);
+		}
+		return fs_;
+	}
 
 	public synchronized Configuration createHDFSConfiguration() {
 
@@ -81,6 +96,7 @@ public abstract class AbstractStreamProcess implements Serializable{
 		return hadoopConfig;
 	}
 
+	@Deprecated
 	public  synchronized void appendToHDFS(String dirPathStr, String data) throws IOException  {
 
 		Path dir_path = new Path(dirPathStr);
@@ -103,12 +119,34 @@ public abstract class AbstractStreamProcess implements Serializable{
 
 	}
 	
+	public  synchronized void appendToHDFS(String dirPathStr, String data,FileSystem fs) throws IOException  {
+
+		Path dir_path = new Path(dirPathStr);
+
+		FSDataOutputStream out = null;
+		if (!fs.exists(dir_path)) {
+			out = fs.create(dir_path,false);
+			fs.setReplication(dir_path,  (short)1);
+			
+		}else{
+			out = fs.append(dir_path);
+		}
+		out.writeUTF(data);
+		out.flush();
+		out.close();
+		
+		//fs.close();//do not close because of timeout issues.
+
+	}
+	
+	@Deprecated
 	public  synchronized void writeToHDFS(String pathStr, String filename, String data) throws IOException  {
 
 		Path path = new Path(pathStr);
 		Configuration conf = createHDFSConfiguration();
 		FileSystem fs = FileSystem.get(conf);
 
+		//FileSystem fs = acquireFS();
 		
 		if (!fs.exists(path)) {
 			fs.createNewFile(path);
@@ -123,12 +161,31 @@ public abstract class AbstractStreamProcess implements Serializable{
 		fs.close();
 
 	}
+	
+	public  synchronized void writeToHDFS(String pathStr, String filename, String data, FileSystem fs) throws IOException  {
+
+		Path path = new Path(pathStr);
+		
+		//FileSystem fs = acquireFS();
+		
+		if (!fs.exists(path)) {
+			fs.createNewFile(path);
+			fs.setReplication(path,  (short)1);
+		}
+		
+		FSDataOutputStream out = fs.append(path);
+		out.writeUTF(data);
+
+		fs.close();
+
+	}
 
 	@Deprecated
 	public synchronized Schema readSchemaFromHDFS(Schema.Parser parser,String uri) throws IOException{
 
 		Configuration conf = createHDFSConfiguration();
 		FileSystem fs = FileSystem.get(URI.create(uri), conf);
+		
 		FSDataInputStream in = null;
 
 		Schema ret = null;
@@ -226,6 +283,42 @@ public abstract class AbstractStreamProcess implements Serializable{
 
 		return cache.get(propfile);		
 	}
+	
+	/**
+	 * Note: this is not a pooled resource?
+	 * */
+	public synchronized KafkaProducer<String, byte[]> retrieveCachedKafkaProducer(Properties kafkaProps) throws IOException, ExecutionException{
+		
+		LoadingCache<Properties,KafkaProducer<String, byte[]>> cache = null;
+		
+		if((cache = (LoadingCache<Properties, KafkaProducer<String, byte[]>>) StaticCacheManager.getCache(StaticCacheManager.CACHE_TYPE.KafkaProducerCache))!=null){
+			return cache.get(kafkaProps);
+		}
+		
+		CacheLoader<Properties,KafkaProducer<String, byte[]>> loader = new CacheLoader<Properties,KafkaProducer<String, byte[]>>(){
+			@Override
+			public KafkaProducer<String, byte[]> load(Properties key) throws Exception {
+				
+				KafkaProducer<String, byte[]> producer = new KafkaProducer<String, byte[]>(key);
+				
+				return producer;
+			}
+		};
+		
+		RemovalListener<Properties,KafkaProducer<String, byte[]>> removalListener = new RemovalListener<Properties,KafkaProducer<String, byte[]>>() {
+			  public void onRemoval(RemovalNotification<Properties,KafkaProducer<String, byte[]>> removal) {
+				  KafkaProducer<String, byte[]> conn = removal.getValue();
+				  conn.close(); 
+			  }
+
+			};
+
+		cache = CacheBuilder.newBuilder().maximumSize(100).refreshAfterWrite((long)1, TimeUnit.HOURS).removalListener(removalListener).build(loader);
+
+		StaticCacheManager.insertCache(StaticCacheManager.CACHE_TYPE.KafkaProducerCache, cache);
+		
+		return cache.get(kafkaProps);		
+	}
 
 	@Deprecated
 	public Map<String,?> parseAvroData(byte[] avrodata, String avro_schema_hdfs_location) throws Exception{
@@ -254,7 +347,7 @@ public abstract class AbstractStreamProcess implements Serializable{
 		return avroParser.parse(avrodata, new String());		
 	}
 	
-	public synchronized  Map<String,?> parseJsonData(byte[] jsondata) throws Exception{
+	public  synchronized Map<String,? extends Object> parseJsonData(byte[] jsondata) throws Exception{
 		ObjectMapper mapper = new ObjectMapper();
 		Map<String,?> map =  mapper.readValue(jsondata, new TypeReference<Map<String, ?>>(){});
 
