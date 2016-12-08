@@ -3,17 +3,12 @@ package com.neustar.iot.spark.kafka;
 import scala.Tuple2;
 
 import org.apache.avro.Schema;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.streaming.Duration;
-import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
@@ -27,9 +22,7 @@ import com.neustar.iot.spark.rules.RulesProxy;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -42,7 +35,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 /**
  * Is a Kafka consumer using Spark api. 
@@ -127,7 +119,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 				rdd.foreachPartition( new VoidFunction<Iterator<Tuple2<String, byte[]>>>(){
 					
 					final Properties props = producerProperties;
-					//final RulesProxy rulesProxy = RulesProxy.instance();
+					final RulesProxy rulesProxy = RulesProxy.instance();
 					/**
 					 * 
 					 */
@@ -146,18 +138,18 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 							
 
 								try {
-									//appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+ "/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2+"\n");
+									appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+ "/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2+"\n");
 									//parse - 
 
 									data = (Map<String, Object>) parseAvroData(tuple2._2,avro_schema_web_url);
 									//log.debug("Parsed data : Append to hdfs");
-									//appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json",  parseAvroData(tuple2._2, avro_schema_web_url, String.class)+"\n");
+									appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json",  parseAvroData(tuple2._2, avro_schema_web_url, String.class)+"\n");
 
 									
 									log.debug("Apply rules");
-									applyRules(data);
+									//applyRules(data);
 									
-									//rulesProxy.executeRules(data);
+									rulesProxy.executeRules(data);
 									
 								} catch (Exception e) {
 									log.error(e,e);

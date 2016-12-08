@@ -16,7 +16,7 @@ import javax.xml.bind.DatatypeConverter;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-
+import org.apache.commons.net.util.Base64;
 import org.junit.Before;
 import org.junit.Test;
 import org.kie.api.KieServices;
@@ -24,6 +24,7 @@ import org.kie.api.io.Resource;
 
 import com.neustar.io.net.forward.ForwarderIfc;
 import com.neustar.io.net.forward.rest.RestfulGetForwarder;
+import com.neustar.iot.spark.kafka.SecurityAndAvroStandardizationStreamProcess;
 
 import io.parser.avro.AvroParser;
 import io.parser.avro.AvroUtils;
@@ -302,9 +303,9 @@ public class TestDroolsAnsForwarders {
 		 	
 		 	Schema schema = new Schema.Parser().parse(new File("/Users/kndungu/Documents/workspace/iot-serialization/resources/NeustarMessage.avsc"));
 			GenericRecord mesg = new GenericData.Record(schema);	
-			
-			mesg.put("sourceid", "device1");
-			mesg.put("payload", "{\"id\":\"000000a9-2c7a-4654-8f34-f6e1d1ad8ad7/YS9saWdodA==\",\"data\":{\"value\":false}}");
+			//
+			mesg.put("sourceid", "default");
+			mesg.put("payload", null);
 			mesg.put("messagetype", "REGISTRY_POST");
 			mesg.put("createdate",  DateFormat.getDateInstance().format(new Date())+"");
 			mesg.put("messageid", UUID.randomUUID()+"");
@@ -322,23 +323,27 @@ public class TestDroolsAnsForwarders {
 			
 			Schema schema_remoteReq = new Schema.Parser().parse(new File("/Users/kndungu/Documents/workspace/iot-serialization/resources/RemoteRequest.avsc"));
 			
-			GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
-			/*remotemesg.put("path", "/api/v1/devices");
-			remotemesg.put("payload","{\"value\":\"false\"}");
-			remotemesg.put("deviceId","RaspiLightUUID-Demo");
-			remotemesg.put("header","hub-request");
-			remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
-			remotemesg.put("verb","POST");*/
-			
+			//GenericRecord remotemesg = new GenericData.Record(schema_remoteReq);	
+
+			String json = "{\"path\":\"/a/light\",\"verb\":\"POST\",\"payload\":{ \"value\": true },\"statusCode\":2,\"txId\":\"396790e1-09c8-409a-9274-37e578dc5d4e\"}";
 		
+			SecurityAndAvroStandardizationStreamProcess proc = new SecurityAndAvroStandardizationStreamProcess();
+			Map<String,?>map = (Map<String, ?>) proc.parseJsonData(json.getBytes());
+			System.out.println(map);
+			GenericRecord remotemesg = proc.temporaryCreateRemoteMessage(map,schema_remoteReq, true);
+			
+			//GenericRecord remotemesg  = proc.createGenericRecord(map, schema_remoteReq);
+			
+			/*
 			remotemesg.put("statusCode", 0);
 			remotemesg.put("path", "/a/light");
-			remotemesg.put("payload","{\"value\":\"true\"}");
-			remotemesg.put("deviceId","RaspiLightUUID-Demo");
-			remotemesg.put("header","hub-request");
-			remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
+			remotemesg.put("payload","{\"value\":true}");
+			remotemesg.put("txId","396790e1-09c8-409a-9274-37e578dc5d4e");
 			remotemesg.put("verb","POST");
-			remotemesg.put("statusCode",0);
+			remotemesg.put("statusCode",2);
+			remotemesg.put("header","");
+			remotemesg.put("deviceId","");
+			*/
 			
 			byte[] payloadavro = AvroUtils.serializeJava(remotemesg, schema_remoteReq);
 			GenericRecord genericPayload = AvroUtils.avroToJava(payloadavro, schema_remoteReq);
@@ -356,6 +361,10 @@ public class TestDroolsAnsForwarders {
 			runRules(avromap);
 			
 	 }	 
+	 
+		
+		
+		
 	 @Test public void testRestPutCall() throws Throwable
 	 {
 		 	

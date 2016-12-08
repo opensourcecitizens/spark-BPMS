@@ -29,7 +29,7 @@ import com.neustar.io.net.forward.phoenix.PhoenixForwarder;
 
 import io.parser.avro.AvroParser;
 import io.parser.avro.AvroUtils;
-import io.parser.avro.phoenix.AvroToPhoenixMap;
+import io.parser.avro.jdbc.AvroPreparedStatementMapper;
 
 public class TestPhoenixUsingDerby {
 
@@ -115,7 +115,7 @@ public class TestPhoenixUsingDerby {
 			smt2 = conn.prepareStatement("INSERT INTO TEST_TABLE ( "+Arrays.toString(keyset.toArray()).replace("[", "").replace("]", "")+",CREATED_TIME) "
 					+ "VALUES("+Arrays.toString(qm).replace("[", "").replace("]", "")+", ? )");
 			smt2.setTimestamp(datasize+1, new Timestamp(System.currentTimeMillis()));
-			AvroToPhoenixMap sqlMapping = new AvroToPhoenixMap();
+			AvroPreparedStatementMapper sqlMapping = new AvroPreparedStatementMapper();
 			
 			sqlMapping.translate(smt2, map, schema);
 			

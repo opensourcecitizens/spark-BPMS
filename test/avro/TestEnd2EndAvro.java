@@ -46,6 +46,7 @@ public class TestEnd2EndAvro {
 		//gateway message construction
 		Map<String, Object> data = new HashMap<String,Object>();
 		data.put("payload", message);
+		data.put("registrypayload", null);
 		data.put("sourceid", "yaima");
 		data.put("authentication", "someid");
 		data.put("messagetype", "TELEMETRY");
@@ -57,11 +58,10 @@ public class TestEnd2EndAvro {
 		//security spark process : message recieved from  kafka in 
 		Map<String,?> jsonMap = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"").parseJsonData(jsondata.getBytes());
 
-			//extract payload etc and create avro message
-		System.out.println(jsonMap);;
-		//create generic avro record 
+		//extract payload etc and create avro message
+		System.out.println(jsonMap);
 		
-
+		//create generic avro record 
 		GenericRecordBuilder outMap =  new GenericRecordBuilder(schema);
 		String sourceid = (String) jsonMap.get("sourceid");
 		String time = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(new Date());
@@ -70,6 +70,7 @@ public class TestEnd2EndAvro {
 		outMap.set("messageid", msgid);
 		outMap.set("sourceid", sourceid);
 		outMap.set("payload", jsonMap.get("payload"));
+		outMap.set("registrypayload", null);
 		outMap.set("createdate", time);
 		outMap.set("messagetype", jsonMap.get("messagetype"));
 		
@@ -84,8 +85,8 @@ public class TestEnd2EndAvro {
 		System.out.println();
 		//send to kafka
 		System.out.println("Avro size = "+size);
-		String i = "12345MS";
-		System.out.println("int size = "+Bytes.toBytes(i).length);
+		String i_s = "12345MS";
+		System.out.println("int size = "+Bytes.toBytes(i_s).length);
 		//business process: receive from kafka
 			//parse avro data to map for analysis
 		AvroParser<Map<String,?>> avroParser = new AvroParser<Map<String,?>>(schema);
@@ -93,8 +94,7 @@ public class TestEnd2EndAvro {
 			//send map to elasticsearch
 		
 		System.out.println(mapdata);;
-		
-		
+
 	}
 
 	@Test public void byteArrayConversion() throws IOException{
@@ -123,6 +123,7 @@ public class TestEnd2EndAvro {
 		remotemesg.put("header","{\"API-KEY\": \"0\",\"Content-Type\": \"application/json\"}");
 		remotemesg.put("txId","someTextid");
 		remotemesg.put("verb","update");
+		remotemesg.put("statusCode",1);
 		
 		byte[] payloadavro = AvroUtils.serializeJava(remotemesg, schema_remoteReq);
 		GenericRecord genericPayload = AvroUtils.avroToJava(payloadavro, schema_remoteReq);
@@ -143,7 +144,7 @@ public class TestEnd2EndAvro {
 		System.out.println(new RulesForwardWorker().searchMapFirstSubKey("RemoteRequest", map));
 	}
 	
-	@Test public void testProcess() throws JsonGenerationException, JsonMappingException, IOException, ExecutionException{
+	@Test public void testProcess() throws Exception{
 		/*{"path":"/a/light","verb":"POST","payload":{ "value": true },"statusCode":2,"txId":"396790e1-09c8-409a-9274-37e578dc5d4e"}*/
 		
 		Map<String, Object> data = new HashMap<String,Object>();
@@ -160,11 +161,11 @@ public class TestEnd2EndAvro {
 		//security spark process : message recieved from  kafka in 
 		//Map<String,?> jsonMap = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"").parseJsonData(jsondata.getBytes());
 		SecurityAndAvroStandardizationStreamProcess proc = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"");
-		proc.createAndSendAvroToQueue(data,proc.getProps());
+		proc.createAndSendAvroToQueue(data,proc.getProducerProperties());
 		
 	}
 	
-	@Test public void testProcess2() throws JsonGenerationException, JsonMappingException, IOException, ExecutionException{
+	@Test public void testProcess2() throws Exception{
 		String jsondata = "{\"deviceId\" : \"54919CA5-4101-4AE4-595B-353C51AA983C\",\"path\" : \"/a/light\","
 				+ " \"payload\" : {\"value\" : true,\"brightness\" : 30 }}";
 		
@@ -183,7 +184,7 @@ public class TestEnd2EndAvro {
 		//security spark process : message recieved from  kafka in 
 		//Map<String,?> jsonMap = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"").parseJsonData(jsondata.getBytes());
 		SecurityAndAvroStandardizationStreamProcess proc = new SecurityAndAvroStandardizationStreamProcess("device.event",1,"");
-		proc.createAndSendAvroToQueue(data,proc.getProps());
+		proc.createAndSendAvroToQueue(data,proc.getProducerProperties());
 		
 	}
 }

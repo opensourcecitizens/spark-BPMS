@@ -3,6 +3,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.concurrent.Callable;
@@ -58,17 +59,18 @@ public class OneIdRESTVolumeTest {
 
 	}
 
-	public static URLConnection openConnection() throws IOException {
-		URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/api/queue/json/stream/topic/in.topic.oneid?userid=oneid");
-		//URL url = new URL("http://127.0.0.1:8988/JsonGatewayWebService/api/queue/avro/stream/topic/out.topic.registry?userid=default");
-		
-		URLConnection connection = url.openConnection();
+	public static HttpURLConnection openConnection() throws IOException {
+		//URL url = new URL("http://ec2-52-41-165-85.us-west-2.compute.amazonaws.com:8988/JsonGatewayWebService/api/queue/json/stream/topic/in.topic.oneid?userid=oneid");
+		//URL url = new URL("http://localhost:8988/JsonGatewayWebService/api/queue/json/stream/topic/out.topic.registry?userid=default");
+		URL url = new URL("http://localhost:8988/JsonGatewayWebService/api/OneIdRESTService/queue/json/stream/");
+		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 		connection.setDoOutput(true);
-		connection.setRequestProperty("Authentication",
-				"jwt_abc");
+		connection.addRequestProperty("Authorization",
+				"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6Ik1UVTRRVFZEUTBFMFJVSXhSRU5HTWpCR01FRTBPRGMwUTBRMU5VUkVOelV4T1VKRE1UQkZOQSJ9.eyJyb2xlIjoiVVNFUl9ST0xFIiwiaWQiOjI5NCwiaXNzIjoiaHR0cHM6Ly9iYWdkaS5hdXRoMC5jb20vIiwic3ViIjoiYXV0aDB8NTgyYzhmYWVmZTc2NzZlZTE4NTY1OGExIiwiYXVkIjoiWjhSTFVtdUdlbjNlbmVRek0yaXlxcFVFS0VEWVowUTUiLCJleHAiOjE0NzkzMzYzNzQsImlhdCI6MTQ3OTMzMjc3NH0.R3KYmSEfvsL3vIZiPU9vuPRM3hSK8zDMcbzGJjZbR_YMkYCxf1FUgiP5fvkHprsC22mRokz0wow6ola7CjtH4tOLj1s1g8xzWchSr47MQ6Sgplf-mB7P1EMuHh7c0I9weR4OGd-smqMMxgBXVwv4Sn_1-4tDTQDLs11VsuPVwuyFQd-TD4BJkPm5tyrW5rpjbduFj1N6h2ZI62CHLVEhCP17YtzDAyu0XkdqLdPf8fGCNDYQhGBs2GvQljrubnmsevxG0WI7qo5wrLP36SbAGihYJm_Ivv3gdjpyCYaAvPo5dISIUTcynG7coha4nXTKiJ8yW-w18rL8pmQNc4mH1Q");
 		connection.setRequestProperty("API-KEY",
 				"123");
-		connection.setRequestProperty("Content-Type",MediaType.APPLICATION_JSON);
+		connection.addRequestProperty("Content-Type",MediaType.APPLICATION_JSON);
+		
 		connection.setConnectTimeout(10000);
 		connection.setReadTimeout(10000);
 		return connection;
@@ -76,26 +78,6 @@ public class OneIdRESTVolumeTest {
 
 	public Future<String> send(String message) {
 		return executor.submit(new Sender(message));
-	}
-	
-	public static byte[] toAvro(String payload) throws IOException{
-		GenericRecord mesg = new GenericData.Record(schema);		
-		mesg.put("deviceId", "RaspiLightUUID-Demo");
-		mesg.put("payload", "{\"value\":true}");
-		mesg.put("txId",  "a37183ac-ba57-4213-a7f3-1c1608ded09e");
-		mesg.put("path", "/a/light");
-		mesg.put("verb", "dosomething");
-		mesg.put("header", "hub-request");
-		mesg.put("statusCode",0);
-		//create avro
-		byte[] avro = AvroUtils.serializeJava(mesg, schema);
-		
-		System.out.println(Bytes.toString(avro));
-		System.out.println("Length  = "+avro.length);
-		
-		
-		
-		return avro;
 	}
 
 	class Sender implements Callable<String> {
@@ -110,6 +92,9 @@ public class OneIdRESTVolumeTest {
 			StringBuilder resposneBuilder = new StringBuilder();
 			try {
 				URLConnection connection = OneIdRESTVolumeTest.openConnection();
+				
+				//System.out.println(connection.getHeaderField("Authentication"));
+				//System.out.println(connection.getHeaderFields());
 				
 				OutputStreamWriter out = new OutputStreamWriter(connection.getOutputStream());
 

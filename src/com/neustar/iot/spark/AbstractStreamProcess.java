@@ -6,9 +6,9 @@ import java.io.Serializable;
 import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -32,6 +32,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
+import com.neustar.iot.spark.cache.PooledResourceCacheManager;
 import com.neustar.iot.spark.cache.StaticCacheManager;
 import com.neustar.iot.spark.kafka.SimplePayloadAvroStandardizationStreamProcess;
 import com.neustar.iot.spark.rules.RulesForwardWorker;
@@ -319,6 +320,56 @@ public abstract class AbstractStreamProcess implements Serializable{
 		
 		return cache.get(kafkaProps);		
 	}
+	
+	static final int KAFKA_PRODUCER_POOL_SIZE = 20;
+	
+	public synchronized KafkaProducer<String, byte[]> retrieveCachedPooledKafkaProducer(Properties kafkaProps) throws IOException, ExecutionException{
+		
+		
+		LoadingCache<Properties,ConcurrentLinkedQueue<KafkaProducer<String, byte[]>>> cache = null;
+		
+		if( PooledResourceCacheManager.getCache(PooledResourceCacheManager.POOL_TYPE.KafkaProducerPoolCache) !=null){
+			if(!PooledResourceCacheManager.getCachedPool(PooledResourceCacheManager.POOL_TYPE.KafkaProducerPoolCache, kafkaProps).isEmpty()) {
+				return (KafkaProducer) PooledResourceCacheManager.pollCachedPool(PooledResourceCacheManager.POOL_TYPE.KafkaProducerPoolCache, kafkaProps);
+			}
+		}
+		
+		CacheLoader<Properties,ConcurrentLinkedQueue<KafkaProducer<String, byte[]>>> loader = new CacheLoader<Properties,ConcurrentLinkedQueue<KafkaProducer<String, byte[]>>>(){
+			@Override
+			public ConcurrentLinkedQueue<KafkaProducer<String, byte[]>> load(Properties key) throws Exception {
+				ConcurrentLinkedQueue<KafkaProducer<String, byte[]>> queue = new ConcurrentLinkedQueue<KafkaProducer<String, byte[]>>();
+				
+				for(int i = 0 ; i < KAFKA_PRODUCER_POOL_SIZE;i++){
+					KafkaProducer<String, byte[]> producer = new KafkaProducer<String, byte[]>(key);
+				
+					queue.add(producer);
+
+				}
+				
+				return queue;
+			}
+		};
+		
+		RemovalListener<Properties,ConcurrentLinkedQueue<KafkaProducer<String, byte[]>>> removalListener = new RemovalListener<Properties,ConcurrentLinkedQueue<KafkaProducer<String, byte[]>>>() {
+			  public void onRemoval(RemovalNotification<Properties,ConcurrentLinkedQueue<KafkaProducer<String, byte[]>>> removal) {
+				  ConcurrentLinkedQueue<KafkaProducer<String, byte[]>> queue = removal.getValue();
+				  while(!queue.isEmpty()){
+				  KafkaProducer<String, byte[]> conn = queue.poll();
+				  conn.close(); 
+				  }
+			  }
+
+			};
+			
+			//removalListener(removalListener)
+
+		cache = CacheBuilder.newBuilder().maximumSize(100).refreshAfterWrite((long)1, TimeUnit.MINUTES).removalListener(removalListener).build(loader);
+
+		PooledResourceCacheManager.insertCache(PooledResourceCacheManager.POOL_TYPE.KafkaProducerPoolCache, cache);
+		
+		return (KafkaProducer) PooledResourceCacheManager.pollCachedPool(PooledResourceCacheManager.POOL_TYPE.KafkaProducerPoolCache, kafkaProps);
+	
+	}
 
 	@Deprecated
 	public Map<String,?> parseAvroData(byte[] avrodata, String avro_schema_hdfs_location) throws Exception{
@@ -374,6 +425,7 @@ public abstract class AbstractStreamProcess implements Serializable{
 		try{
 			data.put("EXCEPTION", e.getMessage());
 			data.put("EXCEPTION CAUSE", e.getCause().getMessage());
+			data.put("EXCEPTION TRACE", e);
 			//Schema schema = retrieveLatestAvroSchema(avro_schema_hdfs_location);
 			//ForwarderIfc kafka = new KafkaForwarder();
 			//kafka.forward(data, schema);

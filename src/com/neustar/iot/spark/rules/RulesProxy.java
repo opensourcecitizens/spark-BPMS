@@ -30,6 +30,8 @@ public class RulesProxy implements  java.io.Serializable{
 	
 	private static final Logger log = Logger.getLogger(RulesProxy.class);
 	
+	private StatelessRuleRunner runner = new StatelessRuleRunner();
+	
 	public static RulesProxy instance(){
 		return new RulesProxy();
 	}
@@ -44,17 +46,17 @@ public class RulesProxy implements  java.io.Serializable{
 	}
 	
 	public void executeRules(Map<String,?> map) throws IOException{
+		
 		String customerId = (String) map.get("sourceid");
 		String rulesAsString;
+		
 		try {
 			rulesAsString = queryForCachedRules(customerId);
 		} catch (ExecutionException e) {
 			log.warn(e,e);
 			rulesAsString = queryForRules(customerId);
 		}
-		
-		StatelessRuleRunner runner = new StatelessRuleRunner();
-		
+			
 		Resource resource = KieServices.Factory.get().getResources().newByteArrayResource(rulesAsString.getBytes(),"UTF-8");
 		resource.setTargetPath("src/main/resources/"+customerId+"customer_drl");
 		resource.setResourceType(ResourceType.DRL );
@@ -64,12 +66,14 @@ public class RulesProxy implements  java.io.Serializable{
 		Map<?,?>[] ret = runner.runRules(rules, facts);	
 		
 		String s = Arrays.toString(ret);
-		//System.out.println(s);
+		
 		log.info(s);
 	}
 	
 	private String queryForCachedRules(final String customerId) throws IOException, ExecutionException {
+		
 		LoadingCache<String, String> cache = null;
+		
 		if((cache = (LoadingCache<String, String>) StaticCacheManager.getCache(StaticCacheManager.CACHE_TYPE.RulesCache))!=null){
 			return cache.get(customerId);
 		}
@@ -77,7 +81,6 @@ public class RulesProxy implements  java.io.Serializable{
 		CacheLoader<String,String> loader = new CacheLoader<String,String>(){
 			@Override
 			public String load(String key) throws Exception {
-				
 				return queryForRules(key);
 			}
 		};
@@ -89,8 +92,6 @@ public class RulesProxy implements  java.io.Serializable{
 		
 		return cache.get(customerId);
 	}
-	
-
 	
 	private String queryForRules(String customerId) throws IOException {
 		String ret = null;
@@ -106,7 +107,5 @@ public class RulesProxy implements  java.io.Serializable{
 		}
 		return ret;
 	}
-	
-	
 
 }

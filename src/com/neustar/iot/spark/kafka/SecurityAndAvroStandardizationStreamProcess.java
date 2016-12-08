@@ -5,7 +5,6 @@ import scala.Tuple2;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.net.util.Base64;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -14,15 +13,12 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.streaming.Duration;
-import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.codehaus.jackson.map.ObjectMapper;
 
 import com.neustar.iot.spark.AbstractStreamProcess;
 
@@ -67,10 +63,11 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 	private URL avro_schema_web_url = null;
 	private URL registry_avro_schema_web_url = null;
 	private static String APP_NAME="Json2AvroStreamProcess"; 
+	
 	enum APP_TYPE{ Json2Avro, DeviceJson2Avro , OneIdJson2Avro };
 
 	@SuppressWarnings("unused")
-	private SecurityAndAvroStandardizationStreamProcess(){}
+	public SecurityAndAvroStandardizationStreamProcess(){}
 
 	public SecurityAndAvroStandardizationStreamProcess(String _inTopics, int _numThreads, String _outTopic) throws IOException {
 		inputTopics=_inTopics;
@@ -116,7 +113,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		}
 
 		// Create direct kafka stream with brokers and topics
-		Set<String> topicsSet = new HashSet<>(Arrays.asList(inputTopics.split(",")));
+		Set<String> topicsSet = new HashSet<>(Arrays.asList(topics));
 		Map<String, String> kafkaParams = new HashMap<>();
 		kafkaParams.put("metadata.broker.list", consumerProperties.getProperty("bootstrap.servers"));
 
@@ -191,8 +188,6 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 				});	
 
 				return null;
-
-
 			}
 		});
 
@@ -214,129 +209,147 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		return true;
 	}
 
-	public synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String, ?> jsonData, Properties props) throws IOException, ExecutionException {
+	public synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String, ?> jsonData, Properties props) throws Exception {
 
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 		String sourceid = null;
 		String msgid = null;
-		//GenericRecordBuilder outMap =  new GenericRecordBuilder(schema);
+
 		GenericRecord outMap = new GenericData.Record(schema);
 
 		String time = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(new Date());
 		outMap.put("createdate", time);
 
-
 		Schema schema_remoteReq = retrieveLatestAvroSchema(registry_avro_schema_web_url);
-
+			
 		if(props.getProperty("currentTopic").startsWith("device.event")){
-			sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));
-
-			GenericRecord remotemesg = temporaryCreateRemoteMessage(jsonData, schema_remoteReq);
-
+			
+			sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));			
 			outMap.put("sourceid", sourceid);	
 			msgid = UUID.randomUUID()+sourceid;
 			outMap.put("messageid", msgid);	
-
+			
+			GenericRecord remotemesg = temporaryCreateRemoteMessage(jsonData, schema_remoteReq,true);
 			outMap = this.deviceEvent(outMap, remotemesg);
 
 		}else if (props.getProperty("currentTopic").startsWith("device.out")){
+			
 			sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));			
-			GenericRecord remotemesg = temporaryCreateRemoteMessage(jsonData, schema_remoteReq);
 			outMap.put("sourceid", sourceid);	
 			msgid = UUID.randomUUID()+sourceid;
 			outMap.put("messageid", msgid);
+			
+			GenericRecord remotemesg = temporaryCreateRemoteMessage(jsonData, schema_remoteReq,true);
 			outMap = this.resolveDeviceState(outMap, remotemesg);
 
 		}else if(props.getProperty("currentTopic").startsWith("device.onboard")){
-			sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));
-			GenericRecord remotemesg = temporaryCreateRemoteMessage(jsonData, schema_remoteReq, true);
+			
+			sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));			
 			outMap.put("sourceid", sourceid);	
 			msgid = UUID.randomUUID()+sourceid;
 			outMap.put("messageid", msgid);
+			
+			GenericRecord remotemesg = temporaryCreateRemoteMessageForOnBoarding(jsonData, schema_remoteReq);
 			outMap = this.onboardDeviceState(outMap, remotemesg);	
+		
+		}else if(props.getProperty("currentTopic").startsWith("out.registry.topic")){
+			
+			sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));					
+			outMap.put("sourceid", sourceid);
+			msgid = UUID.randomUUID()+sourceid;
+			outMap.put("messageid", msgid);
+			
+			GenericRecord payload = createGenericRecord( jsonData, schema_remoteReq);
+			
+			outMap.put("registrypayload", payload);
+			outMap.put("payload", "");
+			outMap.put("createdate", time);
+			outMap.put("messagetype", "REGISTRY_RESPONSE");
+						
 		}else if(props.getProperty("currentTopic").startsWith("in.topic.oneid")){
-			sourceid = "oneid";
+			
+			sourceid = (String) (jsonData.get("sourceid")==null?"oneid":jsonData.get("sourceid"));		
 			outMap.put("sourceid", sourceid);	
 			msgid = UUID.randomUUID()+sourceid;
 			outMap.put("messageid", msgid);
+			
 			outMap.put("registrypayload", null);
 			outMap.put("payload", jsonData.get("payload"));
 			outMap.put("messagetype", StringUtils.isNoneEmpty(jsonData.get("messagetype").toString())?jsonData.get("messagetype"):"TELEMETRY");
-
+		
 		}else{
-			sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));
+			
+			sourceid = (String) (jsonData.get("sourceid")==null?"default":jsonData.get("sourceid"));			
 			outMap.put("sourceid", sourceid);	
 			msgid = UUID.randomUUID()+sourceid;
 			outMap.put("messageid", msgid);
+			
 			outMap.put("registrypayload", null);
 			outMap.put("payload", jsonData.get("payload"));
 			outMap.put("messagetype", StringUtils.isNoneEmpty(jsonData.get("messagetype").toString())?jsonData.get("messagetype"):"TELEMETRY");
 
 		}
+		
+	
 
 		//outMap.build().
 		//create avro
 		byte[] avro = AvroUtils.serializeJava(outMap, schema);
 
-		@SuppressWarnings("resource")
-		KafkaProducer<String, byte[]> producer = retrieveCachedKafkaProducer(props);
+		KafkaProducer<String, byte[]> producer = new KafkaProducer<String, byte[]>(props);// retrieveCachedPooledKafkaProducer(props);//retrieveCachedKafkaProducer(props);
 		Future<RecordMetadata> response = producer.send(new ProducerRecord<String, byte[]>(props.getProperty("topic.id"), avro));
-
+		producer.close();
+		
 		return response;
 	}
 
 	
-	private GenericRecord temporaryCreateRemoteMessage(Map<String,?> jsonData, Schema schema , boolean ... decodePayload){
+	public GenericRecord temporaryCreateRemoteMessage(Map<String,?> jsonData, Schema schema , boolean isjsonPayload) throws Exception{
+		
+		byte[] payloadbytes = Base64.decodeBase64((String)jsonData.get("payload"));
+		@SuppressWarnings("unchecked")
+		Map<String,?> payloadmap = payloadbytes!=null && isjsonPayload?this.parseJsonData(payloadbytes):new HashMap();
+		
 		GenericRecord record = new GenericData.Record(schema);
 		//GenericRecordBuilder builder = new GenericRecordBuilder(schema);
 
 		///cleanup because schema is not imposed
-		record.put("path", jsonData.get("path")==null?"":jsonData.get("path"));
-		record.put("verb", jsonData.get("verb")==null?"":jsonData.get("verb"));
-		record.put("statusCode", jsonData.get("statusCode")==null?0:jsonData.get("statusCode"));
+		record.put("path", payloadmap.get("path")==null?"":payloadmap.get("path"));
+		record.put("verb", payloadmap.get("verb")==null?"":payloadmap.get("verb"));
+		record.put("statusCode", payloadmap.get("statusCode")==null?0:Integer.parseInt((String)payloadmap.get("statusCode")));
 		try {
 
-			if(decodePayload!=null && decodePayload.length>0 && decodePayload[0]==true){
-				record.put("payload", jsonData.get("payload")==null?"":new String(Base64.decodeBase64((String)jsonData.get("payload"))));
+			if(!isjsonPayload){
+				record.put("payload", jsonData.get("payload"));
 			}else
-				record.put("payload", jsonData.get("payload")==null?"":objectToJson(jsonData.get("payload")));
+				record.put("payload", payloadmap.get("payload")==null?"":objectToJson(payloadmap.get("payload")));
 		} catch (Exception e) {
-			record.put("payload",e.getCause());
+			record.put("payload","translation error caused by "+e.getCause());
 		}
 
-		record.put("txId", jsonData.get("txId")==null?"":jsonData.get("txId"));
-		record.put("deviceId", jsonData.get("deviceId")==null?"":jsonData.get("deviceId"));
-		record.put("header", jsonData.get("header")==null?"":jsonData.get("header"));
+		record.put("txId", payloadmap.get("txId")==null?"":payloadmap.get("txId"));
+		record.put("deviceId", payloadmap.get("deviceId")==null?"":payloadmap.get("deviceId"));
+		record.put("header", payloadmap.get("header")==null?"":payloadmap.get("header"));
 
 		return record;
 	}
 
-
-	private GenericRecord temporaryCreateRemoteMessageForOnboard(Map<String,?> jsonData, Schema schema , boolean ... decodePayload){
+	
+	public GenericRecord temporaryCreateRemoteMessageForOnBoarding(Map<String,?> jsonData, Schema schema) throws Exception{
+		
 		GenericRecord record = new GenericData.Record(schema);
-		//GenericRecordBuilder builder = new GenericRecordBuilder(schema);
 
-		///cleanup because schema is not imposed
 		record.put("path", jsonData.get("path")==null?"":jsonData.get("path"));
-		record.put("verb", jsonData.get("verb")==null?"":jsonData.get("verb"));
-		record.put("statusCode", jsonData.get("statusCode")==null?0:jsonData.get("statusCode"));
-		try {
-			//new String( Base64.decodeBase64(mapper.writeValueAsString(bytes)))
-			System.out.println(new String(Base64.decodeBase64((String)jsonData.get("payload"))));
-			record.put("payload", jsonData.get("payload")==null?"":new String(Base64.decodeBase64((String)jsonData.get("payload"))));
-		} catch (Exception e) {
-			record.put("payload",e.getCause());
-		}
+		record.put("verb", "");
+		record.put("statusCode", 0);
+		record.put("payload", jsonData.get("payload")!=null?new String(Base64.decodeBase64((String)jsonData.get("payload"))):"");
+		record.put("txId", "");
+		record.put("deviceId", "");
+		record.put("header", "");
 
-		record.put("txId", jsonData.get("txId")==null?"":jsonData.get("txId"));
-		record.put("deviceId", jsonData.get("deviceId")==null?"":jsonData.get("deviceId"));
-		record.put("header", jsonData.get("header")==null?"":jsonData.get("header"));
-		///done cleanup
-		//byte[] avro = AvroUtils.serializeJava(jsonData, schema_remoteReq);
-		//GenericRecord remotemesg = AvroUtils.avroToJava(avro, schema_remoteReq);
 		return record;
 	}
-
+	
 	public GenericRecord resolveDeviceState(GenericRecord curRecord,GenericRecord remotemesg){
 
 		curRecord.put("registrypayload", remotemesg);
@@ -358,6 +371,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 
 		return curRecord;
 	}
+	
 	public GenericRecord deviceEvent(GenericRecord curRecord,GenericRecord remotemesg){
 
 		curRecord.put("registrypayload", remotemesg);
