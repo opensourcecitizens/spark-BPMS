@@ -134,7 +134,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 			@Override
 			public Void call(JavaPairRDD<String, byte[]> rdd) throws IOException, ClassNotFoundException, SQLException {
 
-				rdd.foreachPartition( new VoidFunction<Iterator<Tuple2<String, byte[]>>>(){
+				rdd.foreachPartitionAsync( new VoidFunction<Iterator<Tuple2<String, byte[]>>>(){
 					
 					final Properties props = producerProperties;
 					/**
@@ -316,7 +316,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		///cleanup because schema is not imposed
 		record.put("path", payloadmap.get("path")==null?"":payloadmap.get("path"));
 		record.put("verb", payloadmap.get("verb")==null?"":payloadmap.get("verb"));
-		record.put("statusCode", payloadmap.get("statusCode")==null?0:Integer.parseInt((String)payloadmap.get("statusCode")));
+		record.put("statusCode", payloadmap.get("statusCode")==null?0:payloadmap.get("statusCode"));
 		try {
 
 			if(!isjsonPayload){
