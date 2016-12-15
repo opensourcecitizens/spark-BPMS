@@ -23,7 +23,9 @@ import io.parser.avro.AvroUtils;
 import io.rules.drools.StatelessRuleRunner;
 
 public class DroolsFunctionCallTest {
+	
 	Map<String,?> map = null;
+	
 	@Before public void createMap() throws Exception{
 		Schema schema = new Schema.Parser().parse(DroolsFunctionCallTest.class.getResourceAsStream("/drools/CustomMessage.avsc"));
 
@@ -38,9 +40,9 @@ public class DroolsFunctionCallTest {
 		AvroParser<Map<String,?>> parser = new AvroParser<Map<String,?>>(schema);
 		map =  parser.parse(avrodata, schema);
 	}
+	
 	@Test public void testRegistryGet(){
-		
-		
+				
 		//InputStream rulesStream = DroolsFunctionCallTest.class.getResourceAsStream("drools/RouteGenericMapDataRules.drl");
 		StatelessRuleRunner runner = new StatelessRuleRunner();
 		//String [] rules =  {"drools/RouteGenericMapDataRules.drl"};

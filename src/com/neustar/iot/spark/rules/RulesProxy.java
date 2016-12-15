@@ -9,6 +9,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.log4j.Logger;
 import org.kie.api.KieServices;
 import org.kie.api.io.Resource;
@@ -17,12 +18,20 @@ import org.kie.api.io.ResourceType;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.neustar.iot.spark.cache.StaticCacheManager;
 
 import io.rules.drools.StatelessRuleRunner;
 
-public class RulesProxy {
+public class RulesProxy implements  java.io.Serializable{
+	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 2894662285905184948L;
 	
 	private static final Logger log = Logger.getLogger(RulesProxy.class);
+	
+	private StatelessRuleRunner runner = new StatelessRuleRunner();
 	
 	public static RulesProxy instance(){
 		return new RulesProxy();
@@ -38,17 +47,17 @@ public class RulesProxy {
 	}
 	
 	public void executeRules(Map<String,?> map) throws IOException{
+		
 		String customerId = (String) map.get("sourceid");
 		String rulesAsString;
+		
 		try {
 			rulesAsString = queryForCachedRules(customerId);
 		} catch (ExecutionException e) {
 			log.warn(e,e);
 			rulesAsString = queryForRules(customerId);
 		}
-		
-		StatelessRuleRunner runner = new StatelessRuleRunner();
-		
+			
 		Resource resource = KieServices.Factory.get().getResources().newByteArrayResource(rulesAsString.getBytes(),"UTF-8");
 		resource.setTargetPath("src/main/resources/"+customerId+"customer_drl");
 		resource.setResourceType(ResourceType.DRL );
@@ -58,41 +67,54 @@ public class RulesProxy {
 		Map<?,?>[] ret = runner.runRules(rules, facts);	
 		
 		String s = Arrays.toString(ret);
-		//System.out.println(s);
+		
 		log.info(s);
 	}
 	
 	private String queryForCachedRules(final String customerId) throws IOException, ExecutionException {
 		
+		LoadingCache<String, String> cache = null;
+		
+		if((cache = (LoadingCache<String, String>) StaticCacheManager.getCache(StaticCacheManager.CACHE_TYPE.RulesCache))!=null){
+			return cache.get(customerId);
+		}
+			
 		CacheLoader<String,String> loader = new CacheLoader<String,String>(){
 			@Override
 			public String load(String key) throws Exception {
-				
 				return queryForRules(key);
 			}
 		};
 		
-		LoadingCache<String, String> cache = CacheBuilder.newBuilder().
+		cache = CacheBuilder.newBuilder().
 				refreshAfterWrite((long)1, TimeUnit.HOURS).build(loader);
-			
+		
+		StaticCacheManager.insertCache(StaticCacheManager.CACHE_TYPE.RulesCache, cache);	
+		
 		return cache.get(customerId);
 	}
 	
 	private String queryForRules(String customerId) throws IOException {
+		
 		String ret = null;
 		System.out.println("uniqueid = "+customerId);
-		InputStream rulesStream = new RulesForwardWorker().retrieveRulesFromHDFS(customerId);
+		
+		RulesForwardWorker forwardworker = new RulesForwardWorker();
+		FileSystem fs = forwardworker.acquireFS();
+		InputStream rulesStream = forwardworker.retrieveRulesFromHDFS(customerId,fs);
+		
 		StringWriter writer = new StringWriter();
+		
 		try{
 			IOUtils.copy(rulesStream, writer);
 			ret = writer.getBuffer().toString();
 		}finally{
 			writer.close();
 			rulesStream.close();
+			fs.close();
 		}
+		
 		return ret;
 	}
-	
-	
 
 }

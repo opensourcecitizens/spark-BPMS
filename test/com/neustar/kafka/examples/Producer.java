@@ -1,7 +1,7 @@
 package com.neustar.kafka.examples;
 
 import com.google.common.io.Resources;
-import com.neustar.iot.spark.kafka.BusinessProcessAvroConsumerStreamProcess;
+import com.neustar.iot.spark.kafka.BusinessProcessAvroConsumerStreamProcess_testing;
 
 import io.parser.avro.AvroUtils;
 
@@ -29,7 +29,7 @@ public class Producer extends Consumer {
 	Properties properties = null;
 	public Producer(){
 		super();
-		InputStream props = BusinessProcessAvroConsumerStreamProcess.class.getClassLoader().getResourceAsStream("producer.props");
+		InputStream props = BusinessProcessAvroConsumerStreamProcess_testing.class.getClassLoader().getResourceAsStream("producer.props");
 		properties = new Properties();
 		try {
 			properties.load(props);

@@ -4,14 +4,12 @@ import scala.Tuple2;
 
 import org.apache.avro.Schema;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.streaming.Duration;
-import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
@@ -25,9 +23,7 @@ import com.neustar.iot.spark.rules.RulesProxy;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -35,7 +31,9 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
@@ -44,8 +42,8 @@ import java.util.concurrent.ExecutionException;
  * Reads from a topic specified in
  * producer.props. Writes to 3 outputs: HBase,HDFS, Rest
  */
-public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStreamProcess{
-	static final Logger log = Logger.getLogger(BusinessProcessAvroConsumerStreamProcess.class);
+public final class BusinessProcessAvroConsumerStreamProcess_testing extends AbstractStreamProcess{
+	static final Logger log = Logger.getLogger(BusinessProcessAvroConsumerStreamProcess_testing.class);
 
 	/**
 	 * 
@@ -60,7 +58,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	private URL avro_schema_web_url = null;
 	private static String APP_NAME ="BusinessProcessStreamProcessor";
 	
-	public BusinessProcessAvroConsumerStreamProcess(String _topics, int _numThreads) throws IOException {
+	public BusinessProcessAvroConsumerStreamProcess_testing(String _topics, int _numThreads) throws IOException {
 		topics_str=_topics;
 		numThreads=_numThreads;
 						
@@ -78,7 +76,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 			
 		int numThreads = Integer.parseInt(args[1]);
 		
-		new BusinessProcessAvroConsumerStreamProcess(args[0], numThreads).run();
+		new BusinessProcessAvroConsumerStreamProcess_testing(args[0], numThreads).run();
 	}
 	
 	
@@ -111,108 +109,76 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 	        topicsSet
 	    );
 	    
-	    //messages.repartition(numPartitions)
 	    
-	    JavaDStream<Map<String,?>> lines = messages.map (new Function<Tuple2<String, byte[]>, Map<String,?>>() {
+		messages.foreachRDD(new Function<JavaPairRDD<String, byte[]>, Void>() {
 			private static final long serialVersionUID = 1L;
 			String daily_hdfsfilename = new SimpleDateFormat("yyyyMMdd").format(new Date());
-			
-		@Override
-	      public Map<String,?> call(Tuple2<String, byte[]> tuple2) throws IOException, ClassNotFoundException, SQLException {
-				String parallelHash = Math.random()+"";
-				
-				log.debug("Raw data : Append to hdfs: key="+tuple2._1);
-				log.debug("Raw data : Append to hdfs: value="+String.valueOf(tuple2._2));
-				
-				/*
-				System.out.println("Raw data : Append to hdfs: key="+tuple2._1);
-				System.out.println("Raw data : Append to hdfs: value="+String.valueOf(tuple2._2));
-				System.out.print("[");	
-				for(int i = 0 ; i < tuple2._2.length; i++){
-					System.out.print(tuple2._2[i]+",");	
-				}
-				System.out.print("]");	System.out.println("");	
-				*/
-				
-				FileSystem fs = acquireFS();
-				
-				Map<String, Object> data = null;
-				
-				try {
-					appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+ "/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2+"\n",fs);
-					//parse - 
-
-					data = (Map<String, Object>) parseAvroData(tuple2._2,avro_schema_web_url);
-					//log.debug("Parsed data : Append to hdfs");
-					appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json",  parseAvroData(tuple2._2, avro_schema_web_url, String.class)+"\n",fs);
-
-				} catch (Exception e) {
-					log.error(e,e);
-					//check error and decide if to recycle msg if parser error.
-					//e.printStackTrace();
-					
-					reportException(data,e);
-					
-				}
-				
-			return data ;
-	      }
-	    });
-
-	    //System.out.println(lines.count());
-	   //lines = lines.repartition(6);//causing failure -- why? was working ok before.
-	    
-	    
-	    lines.foreachRDD(new Function<JavaRDD<Map<String,?>>, Void>() {
-
-			private static final long serialVersionUID = 1L;
 
 			@Override
-			public Void call(JavaRDD<Map<String,?>> stringJavaRDD) throws Exception {
+			public Void call(JavaPairRDD<String, byte[]> rdd) throws IOException, ClassNotFoundException, SQLException {
 
-				stringJavaRDD.foreachAsync(new VoidFunction<Map<String,?>>() {
+				rdd.foreachPartition( new VoidFunction<Iterator<Tuple2<String, byte[]>>>(){
+					
+					//final Properties props = producerProperties;
+					//final RulesProxy rulesProxy = RulesProxy.instance();
+					/**
+					 * 
+					 */
+					private static final long serialVersionUID = 1L;
 
-							private static final long serialVersionUID = 1L;
+					@Override
+					public void call(Iterator<Tuple2<String, byte[]>> itTuple) throws Exception {
+						RulesProxy rulesProxy = RulesProxy.instance();
+						FileSystem fs = acquireFS();
+						
+						while(itTuple.hasNext()){
+
+							Tuple2<String, byte[]> tuple2  = itTuple.next();					
+
+							String parallelHash = Math.random()+"";
+
+							Map<String, Object> data = null;
 							
-							@Override
-							public void call(Map<String,?> msg) throws Exception {
-								
-								
-								try{
-									//Map<String,?> msg = null;
-									//while(it.hasNext() && (msg =it.next() ) !=null ){
-									//apply rules here to determine what messages proceed to next level
-									//you may also add tags for other rules to process downstream for re-routing etc
+
+								try {
+									appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+ "/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2+"\n",fs);
+									//parse - 
+									data = (Map<String, Object>) parseAvroData(tuple2._2,avro_schema_web_url);
+									//log.debug("Parsed data : Append to hdfs");
+									appendToHDFS(hdfs_output_dir  +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json",  parseAvroData(tuple2._2, avro_schema_web_url, String.class)+"\n",fs);
+									
+									fs.close();
+									
 									log.debug("Apply rules");
-									applyRules(msg);
-								
+									//applyRules(data);
 									
+									rulesProxy.executeRules(data);
 									
-								
-								}catch( Throwable e){
+								} catch (Exception e) {
+									log.error(e,e);
 									//check error and decide if to recycle msg if parser error.
-									log.error(e);
-								}
+									//e.printStackTrace();
 									
-							}
+									reportException(data,e);
+									
+								}
+
+	
 
 						}
 
-				);
-				
-				return null;
-			}});
+					}
 
+				});	
+
+				return null;
+			}
+		});
 
 		jssc.start();
 		jssc.awaitTermination();
 		
 	}
-	
-
-	
-
-	
 
 	@Deprecated
 	protected Schema retrieveLatestAvroSchema_OLD() throws IOException, ExecutionException{
@@ -222,7 +188,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 		return schema;
 	}
 	
-	protected void applyRules(Map<String, ?> msg) throws Throwable{
+	protected void applyRules(Map<String, ?> msg) throws Exception{
 		RulesProxy.instance().executeRules(msg);
 	}
 	
@@ -234,22 +200,7 @@ public final class BusinessProcessAvroConsumerStreamProcess extends AbstractStre
 		phoenixConn.forward(map,schema);
 	}
 
-	protected  boolean writeToHDFS(String pathStr, String data) throws IOException {
 
-		Path path = new Path(pathStr);
-		FileSystem fs = FileSystem.get(createHDFSConfiguration());
-
-		if (!fs.exists(path)) {
-			fs.create(path);
-		}
-
-		BufferedWriter br = new BufferedWriter(new OutputStreamWriter(fs.create(path, true)));
-
-		br.write(data);
-		br.close();
-
-		return true;
-	}
 	
 	/**Use forwarders instead**/
 	@Deprecated

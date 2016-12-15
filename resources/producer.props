@@ -10,10 +10,3 @@ value.serializer=org.apache.kafka.common.serialization.ByteArraySerializer
 key.deserializer=org.apache.kafka.common.serialization.StringDeserializer
 value.deserializer=org.apache.kafka.common.serialization.ByteArrayDeserializer
 block.on.buffer.full=true
-
-avro.schema.web.url=https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/versions/current/NeustarMessage.avsc
-registry.avro.schema.web.url=https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/registry-to-spark/versions/current/remoterequest.avsc
-
-#avro.schema.web.url=file:///Users/kndungu/Documents/workspace/iot-serialization/resources/NeustarMessage.avsc
-#registry.avro.schema.web.url=file:///Users/kndungu/Documents/workspace/iot-serialization/resources/RemoteRequest.avsc
-
