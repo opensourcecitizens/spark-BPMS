@@ -144,8 +144,8 @@ public class TestEnd2EndAvro {
 		System.out.println(new RulesForwardWorker().searchMapFirstSubKey("RemoteRequest", map));
 	}
 	
-	@Test public void testProcess() throws Exception{
-		/*{"path":"/a/light","verb":"POST","payload":{ "value": true },"statusCode":2,"txId":"396790e1-09c8-409a-9274-37e578dc5d4e"}*/
+	/*
+	 * @Test public void testProcess() throws Exception{
 		
 		Map<String, Object> data = new HashMap<String,Object>();
 		data.put("path", "/a/light");
@@ -156,10 +156,6 @@ public class TestEnd2EndAvro {
 		ObjectMapper mapper = new ObjectMapper();
 		String jsondata = mapper.writeValueAsString(data);
 		
-		//message sent over to kafka
-		
-		//security spark process : message recieved from  kafka in 
-		//Map<String,?> jsonMap = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"").parseJsonData(jsondata.getBytes());
 		SecurityAndAvroStandardizationStreamProcess proc = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"");
 		proc.createAndSendAvroToQueue(data,proc.getProducerProperties());
 		
@@ -175,16 +171,14 @@ public class TestEnd2EndAvro {
 		data.put("path", "/a/light");
 		data.put("payload", "{\"value\" : true,\"brightness\" : 30}");
 
-		//ObjectMapper mapper = new ObjectMapper();
-		//String jsondata = mapper.writeValueAsString(data);
+
 		ObjectMapper mapper = new ObjectMapper();
 		data = mapper.readValue(jsondata, HashMap.class);
 		//message sent over to kafka
 		
 		//security spark process : message recieved from  kafka in 
-		//Map<String,?> jsonMap = new SecurityAndAvroStandardizationStreamProcess("device.out",1,"").parseJsonData(jsondata.getBytes());
 		SecurityAndAvroStandardizationStreamProcess proc = new SecurityAndAvroStandardizationStreamProcess("device.event",1,"");
-		proc.createAndSendAvroToQueue(data,proc.getProducerProperties());
-		
+		proc.createAndSendAvroToQueue(data,proc.getProducerProperties());	
 	}
+	*/
 }

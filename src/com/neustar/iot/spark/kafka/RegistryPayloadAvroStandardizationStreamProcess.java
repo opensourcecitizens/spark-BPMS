@@ -5,6 +5,7 @@ import scala.Tuple2;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -143,6 +144,8 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 					@Override
 					public void call(Iterator<Tuple2<String, byte[]>> itTuple) throws Exception {
 
+						FileSystem fs = acquireFS();
+						
 						while(itTuple.hasNext()){
 
 							Tuple2<String, byte[]> tuple2  = itTuple.next();					
@@ -152,11 +155,11 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 							Map<String, ? extends Object> data = null;
 							try {
 
-								appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2+"\n");
+								appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2+"\n",fs);
 
 								data = parseAvroData(tuple2._2, registry_avro_schema_web_url);
 
-								appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json", parseAvroData(tuple2._2, registry_avro_schema_web_url, String.class)+"\n");
+								appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json", parseAvroData(tuple2._2, registry_avro_schema_web_url, String.class)+"\n",fs);
 
 								log.debug("Security check");
 
@@ -188,89 +191,6 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 
 		jssc.start();
 		jssc.awaitTermination();
-	    
-		/*
-	    //messages.repartition(numPartitions)
-	    
-	    JavaDStream<Map<String,?>> lines = messages.map(new Function<Tuple2<String, byte[]>, Map<String,?>>() {
-			private static final long serialVersionUID = 1L;
-			String daily_hdfsfilename = new SimpleDateFormat("yyyyMMdd").format(new Date());
-			
-		@Override
-	      public Map<String,?> call(Tuple2<String, byte[]> tuple2) throws Exception {
-				String parallelHash = Math.random()+"";
-				log.debug("Raw data : Append to hdfs");
-				System.out.println("Raw data : Append to hdfs");
-				appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2+"\n");
-
-				Map<String , ?> genericPayload = parseAvroData(tuple2._2, registry_avro_schema_web_url);
-
-				appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json", parseAvroData(tuple2._2, registry_avro_schema_web_url, String.class)+"\n");
-
-			return genericPayload ;
-	      }
-	    });
-
-	    //System.out.println(lines.count());
-	    //lines = lines.repartition(6);
-	    
-	    
-	    lines.foreachRDD(new Function<JavaRDD<Map<String,?>>, Void>() {
-
-			private static final long serialVersionUID = 1L;
-
-			@Override
-			public Void call(JavaRDD<Map<String,?>> stringJavaRDD) throws Exception {
-
-				final Properties props = producerProperties;
-				stringJavaRDD.foreachAsync(new VoidFunction<Map<String,?>>() {
-
-							private static final long serialVersionUID = 1L;
-							
-							@Override
-							public void call(Map<String,?> msg) throws Exception {
-								
-								
-								try{
-									
-									log.debug("Security check");
-									System.out.println("Security check");
-									if(securityCheck(msg)){
-										System.out.println("Writing message: "+msg);
-										Future<RecordMetadata>  res = createAndSendAvroToQueue(msg,props);
-										System.out.println("Wrote to topic:"+res.get().topic()+";  partition:"+res.get().partition());
-										log.info("Wrote to topic:"+res.get().topic()+";  partition:"+res.get().partition());
-										//String res = createAndSendAvroToQueue(msg,props);
-										//System.out.println(res);
-										//log.info(res);
-									}else{
-										//create error message
-										
-									}
-									
-								
-								}catch( Throwable e){
-									//check error and decide if to recycle msg if parser error.
-									log.error(e,e);
-									e.printStackTrace();
-									throw e;
-								}
-									
-							}
-
-
-
-						}
-
-				);
-				
-				return null;
-			}});
-
-
-		jssc.start();
-		jssc.awaitTermination();
-		*/
 		
 	}
 	
@@ -312,14 +232,12 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 		
 		//create avro
 		byte[] avro = AvroUtils.serializeJava(outMap, schema);
-		@SuppressWarnings("resource")
+		
 		KafkaProducer<String, byte[]> producer = new KafkaProducer<String, byte[]>(props);
 		Future<RecordMetadata> response = producer.send(new ProducerRecord<String, byte[]>(props.getProperty("topic.id"), avro));
 		producer.close();
+		
 		return response;
-		//KafkaProducerClient<byte[]> kafka = (KafkaProducerClient<byte[]>) KafkaProducerClient.singleton();
-		//String ret = kafka.send(avro, props.getProperty("topic.id"));
-		//return ret;
 	}
 
 

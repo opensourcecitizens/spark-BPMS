@@ -7,6 +7,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.net.util.Base64;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -19,6 +20,8 @@ import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import com.neustar.iot.spark.AbstractStreamProcess;
 
@@ -133,10 +136,15 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 
 			@Override
 			public Void call(JavaPairRDD<String, byte[]> rdd) throws IOException, ClassNotFoundException, SQLException {
-
+				
 				rdd.foreachPartitionAsync( new VoidFunction<Iterator<Tuple2<String, byte[]>>>(){
 					
 					final Properties props = producerProperties;
+					
+					final String fin_hdfs_output_dir = hdfs_output_dir;
+					final String fin_app_name = APP_NAME;
+					final String fin_daily_hdfsfilename = daily_hdfsfilename;
+					
 					/**
 					 * 
 					 */
@@ -144,7 +152,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 
 					@Override
 					public void call(Iterator<Tuple2<String, byte[]>> itTuple) throws Exception {
-
+						FileSystem fs = acquireFS();
 						while(itTuple.hasNext()){
 
 							Tuple2<String, byte[]> tuple2  = itTuple.next();					
@@ -155,13 +163,13 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 							try {
 
 								log.debug("Raw data : Append to hdfs");
-								appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2+"\n");
+								appendToHDFS(fin_hdfs_output_dir +"/"+fin_app_name+"/RAW/_MSG_" + fin_daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2+"\n",fs);
 
 								//parse - json 
 
 								data = parseJsonData(tuple2._2);
 								//log.debug("Parsed data : Append to hdfs");
-								appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/PARSED/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._2+" | "+  data+"\n");
+								appendToHDFS(fin_hdfs_output_dir +"/"+fin_app_name+"/PARSED/_MSG_" + fin_daily_hdfsfilename +"/" + parallelHash+ ".txt", objectToJson(data) ,fs);
 
 								log.debug("Security check");
 
@@ -209,7 +217,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 		return true;
 	}
 
-	public synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String, ?> jsonData, Properties props) throws Exception {
+	protected synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String, ?> jsonData, Properties props) throws Exception {
 
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 		String sourceid = null;
@@ -217,7 +225,7 @@ public final class SecurityAndAvroStandardizationStreamProcess extends AbstractS
 
 		GenericRecord outMap = new GenericData.Record(schema);
 
-		String time = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").format(new Date());
+		String time = new DateTime ( DateTimeZone.UTC ).toString( );
 		outMap.put("createdate", time);
 
 		Schema schema_remoteReq = retrieveLatestAvroSchema(registry_avro_schema_web_url);

@@ -9,6 +9,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.log4j.Logger;
 import org.kie.api.KieServices;
 import org.kie.api.io.Resource;
@@ -94,17 +95,25 @@ public class RulesProxy implements  java.io.Serializable{
 	}
 	
 	private String queryForRules(String customerId) throws IOException {
+		
 		String ret = null;
 		System.out.println("uniqueid = "+customerId);
-		InputStream rulesStream = new RulesForwardWorker().retrieveRulesFromHDFS(customerId);
+		
+		RulesForwardWorker forwardworker = new RulesForwardWorker();
+		FileSystem fs = forwardworker.acquireFS();
+		InputStream rulesStream = forwardworker.retrieveRulesFromHDFS(customerId,fs);
+		
 		StringWriter writer = new StringWriter();
+		
 		try{
 			IOUtils.copy(rulesStream, writer);
 			ret = writer.getBuffer().toString();
 		}finally{
 			writer.close();
 			rulesStream.close();
+			fs.close();
 		}
+		
 		return ret;
 	}
 

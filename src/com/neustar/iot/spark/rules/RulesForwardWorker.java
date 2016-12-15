@@ -367,7 +367,8 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 
 		return fileUri;
 	}
-
+	
+	@Deprecated
 	public InputStream retrieveRulesFromHDFS(String uniqueId) throws IOException {
 
 		uniqueId = rulesTempDB.containsKey(uniqueId) ? uniqueId : "default";
@@ -378,7 +379,15 @@ public class RulesForwardWorker extends AbstractStreamProcess implements Seriali
 		FileSystem fs = FileSystem.get(URI.create(uri), conf);
 
 		return fs.open(new Path(uri));
+	}
+	
+	public InputStream retrieveRulesFromHDFS(String uniqueId,FileSystem fs) throws IOException {
 
+		uniqueId = rulesTempDB.containsKey(uniqueId) ? uniqueId : "default";
+
+		String uri = user_rules_hdfs_location+"/"+rulesTempDB.get(uniqueId);
+
+		return fs.open(new Path(uri));
 	}
 
 	public Object searchJson(String searchKey, String jsonStr){

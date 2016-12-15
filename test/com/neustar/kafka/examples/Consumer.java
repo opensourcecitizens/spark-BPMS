@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
 import com.neustar.iot.spark.AbstractStreamProcess;
-import com.neustar.iot.spark.kafka.BusinessProcessAvroConsumerStreamProcess;
+import com.neustar.iot.spark.kafka.BusinessProcessAvroConsumerStreamProcess_testing;
 
 import jline.internal.Log;
 
