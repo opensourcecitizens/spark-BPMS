@@ -71,7 +71,7 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 	private static String APP_NAME="RegistryPayloadAvroStreamProcess"; 
 
 	@SuppressWarnings("unused")
-	private RegistryPayloadAvroStandardizationStreamProcess(){}
+	public RegistryPayloadAvroStandardizationStreamProcess(){}
 	
 	public RegistryPayloadAvroStandardizationStreamProcess(String _topics, int _numThreads, String _outTopic) throws IOException {
 		inputTopics=_topics;
@@ -157,10 +157,15 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 
 								appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/RAW/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".txt", System.nanoTime() +" | "+  tuple2._1+" |"+ tuple2._2+"\n",fs);
 
-								data = parseAvroData(tuple2._2, registry_avro_schema_web_url);
+								//data = parseAvroData(tuple2._2, registry_avro_schema_web_url);
 
-								appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json", parseAvroData(tuple2._2, registry_avro_schema_web_url, String.class)+"\n",fs);
+								//appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json", parseAvroData(tuple2._2, registry_avro_schema_web_url, String.class)+"\n",fs);
 
+								data = parseJsonData(tuple2._2);
+
+								appendToHDFS(hdfs_output_dir +"/"+APP_NAME+"/JSON/_MSG_" + daily_hdfsfilename +"/" + parallelHash+ ".json", objectToJson(data)+"\n",fs);
+
+								
 								log.debug("Security check");
 
 								if(securityCheck(data)){
@@ -212,9 +217,13 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 	
 
 
-	protected synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String,?> payloadMap, Properties props) throws IOException, ExecutionException {
+	
+
+	protected synchronized  Future<RecordMetadata> createAndSendAvroToQueue(Map<String,?> payloadMap, Properties props) throws Exception {
 		
-		GenericRecord payload = createGenericRecord( payloadMap, retrieveLatestAvroSchema(registry_avro_schema_web_url));
+		String jsonpayload = objectToJson(payloadMap);
+		
+		//GenericRecord payload = createGenericRecord( payloadMap, retrieveLatestAvroSchema(registry_avro_schema_web_url));
 		//create generic avro record 
 		Schema schema = retrieveLatestAvroSchema(avro_schema_web_url);
 
@@ -225,8 +234,8 @@ public final class RegistryPayloadAvroStandardizationStreamProcess extends Abstr
 		
 		outMap.put("messageid", msgid);
 		outMap.put("sourceid", sourceid);
-		outMap.put("registrypayload", payload);
-		outMap.put("payload", "");
+		outMap.put("registrypayload", null);
+		outMap.put("payload", jsonpayload);
 		outMap.put("createdate", time);
 		outMap.put("messagetype", "REGISTRY_RESPONSE");
 		

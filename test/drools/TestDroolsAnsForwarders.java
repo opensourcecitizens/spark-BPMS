@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.net.URL;
 import java.text.DateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Map;
@@ -17,6 +18,8 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.net.util.Base64;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.junit.Before;
 import org.junit.Test;
 import org.kie.api.KieServices;
@@ -24,6 +27,7 @@ import org.kie.api.io.Resource;
 
 import com.neustar.io.net.forward.ForwarderIfc;
 import com.neustar.io.net.forward.rest.RestfulGetForwarder;
+import com.neustar.iot.spark.kafka.RegistryPayloadAvroStandardizationStreamProcess;
 import com.neustar.iot.spark.kafka.SecurityAndAvroStandardizationStreamProcess;
 
 import io.parser.avro.AvroParser;
@@ -191,7 +195,7 @@ public class TestDroolsAnsForwarders {
 	 @Test public void testProcessRegistryResultCall() throws Throwable
 	 {
 		 	
-		 	Schema schema = new Schema.Parser().parse(new File("/Users/kndungu/Documents/workspace/iot-serialization/resources/NeustarMessage_testing.avsc"));
+		 	Schema schema = new Schema.Parser().parse(new File("/Users/kndungu/Documents/workspace/iot-serialization/resources/NeustarMessage.avsc"));
 			GenericRecord mesg = new GenericData.Record(schema);	
 
 			mesg.put("sourceid", "device1");
@@ -218,16 +222,33 @@ public class TestDroolsAnsForwarders {
 			remotemesg.put("header","hub-request");
 			remotemesg.put("txId","a37183ac-ba57-4213-a7f3-1c1608ded09e");
 			remotemesg.put("verb","POST");
+			remotemesg.put("statusCode",0);
 			
 			byte[] payloadavro = AvroUtils.serializeJava(remotemesg, schema_remoteReq);
-			GenericRecord genericPayload = AvroUtils.avroToJava(payloadavro, schema_remoteReq);
-			mesg.put("registrypayload", genericPayload);
-			mesg.put("payload", "{\"owner\"=\"kaniu\", \"test\"=\"Testing the format of this internal json\"}");
+			//GenericRecord genericPayload = AvroUtils.avroToJava(payloadavro, schema_remoteReq);
+			
+			String jsonpayload ="{ "
+					+ "  \"payload\":\"EC9hL2xpZ2h0CFBPU1QAPHsidmFsdWUiOnRydWUsImJyaWdodG5lc3MiOjMwfRZodWItcmVxdWVzdEhhMjJjODVmYS0wMmJmLTQwMmYtOGQ2OC00MDM5NmMxZGIzMmQqUmFzcGlMaWdodFVVSUQtRGVtbzEx\","
+					+ "\"schemaUrl\":\"https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/registry-to-spark/versions/current/resourcestatechangerequest.avsc\","
+					+ "  \"payloadType\":\"BYTE_ARRAY\","
+					+" \"recepient\":\"DEVICE\""
+					+ "}";
+			/*
+			String jsonpayload = "{  "
+					+ "\"payload\":\"AA==\","
+					+ "  \"schemaUrl\":\"https://s3-us-west-2.amazonaws.com/iot-dev-avroschema/registry-to-spark/versions/current/hubconfig.avsc\", "
+					+ " \"payloadType\":\"BYTE_ARRAY\","
+					+ " \"recepient\":\"HUB\""
+					+ "}";
+			*/
+			mesg.put("registrypayload", null);
+			mesg.put("payload", jsonpayload);
+			//mesg.put("payload", "{\"schema\":\"file:///Users/kndungu/Documents/workspace/iot-serialization/resources/RemoteRequest.avsc\", \"payload\":\""+Base64.encodeBase64String(payloadavro)+"\"}");
 			mesg.put("messagetype", "REGISTRY_RESPONSE");
-			mesg.put("createdate",  DateFormat.getDateInstance().format(new Date())+"");
+			mesg.put("createdate",  new DateTime ( DateTimeZone.UTC ).toString( ));
 			mesg.put("messageid", UUID.randomUUID()+"");
 
-			System.out.println(mesg.toString());
+			//System.out.println(mesg.toString());
 			//create avro
 			//byte[] avrodata = AvroUtils.serializeJson(mesg.toString(), schema);
 			byte[] avrodata = AvroUtils.serializeJava(mesg, schema);
@@ -238,7 +259,7 @@ public class TestDroolsAnsForwarders {
 
 			runRules(avromap);
 			
-	 }	 
+	 }
 	 
 	 
 	 
