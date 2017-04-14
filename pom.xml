@@ -53,13 +53,13 @@
 		</dependency>
 		<!-- <dependency> <groupId>org.apache.phoenix</groupId> <artifactId>phoenix-spark</artifactId> 
 			<version>4.4.0-HBase-1.1</version> <scope>provided</scope> </dependency> -->
-
+		<!--
 		<dependency>
 			<groupId>internal.phoenix</groupId>
 			<artifactId>phoenix-client</artifactId>
 			<version>4.4-iotas</version>
 		</dependency>
-
+		-->
 		<dependency>
 			<groupId>com.neustar.iot.serialization</groupId>
 			<artifactId>iot-serialization</artifactId>
